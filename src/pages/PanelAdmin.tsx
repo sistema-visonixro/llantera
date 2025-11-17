@@ -1,18 +1,91 @@
 import React, { useEffect, useState } from 'react'
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'datos', label: 'Datos de mi empresa' },
-  { id: 'usuarios', label: 'Usuarios / Cajeros' },
-  { id: 'factura', label: 'Factura y CAI' },
-  { id: 'inventario', label: 'Inventario' },
-  { id: 'cierres', label: 'Cierres de caja' },
-  { id: 'rep_ventas', label: 'Reportes de ventas' },
-  { id: 'rep_devoluciones', label: 'Reporte de devoluciones' },
-  { id: 'rep_ingresos', label: 'Reporte de ingresos' },
-  { id: 'rep_egresos', label: 'Reportes de egresos' },
-  { id: 'impresion', label: 'Impresión de reportes generales' },
-  { id: 'contaduria', label: 'Contaduría' },
+const menuSections = [
+  {
+    id: 'administracion',
+    label: 'Administración',
+    children: [
+      { id: 'datos', label: 'Datos de la empresa' },
+      { id: 'usuarios', label: 'Usuarios y Roles' },
+      { id: 'permisos', label: 'Permisos avanzados' },
+      { id: 'auditoria', label: 'Auditoría (bitácora)' },
+      { id: 'respaldos', label: 'Respaldos / restauración' },
+    ],
+  },
+  {
+    id: 'ventas',
+    label: 'Ventas / Facturación',
+    children: [
+      { id: 'factura', label: 'Facturas' },
+      { id: 'cai', label: 'CAI / Folios' },
+      { id: 'cotizaciones', label: 'Cotizaciones' },
+      { id: 'notas', label: 'Notas de crédito / devoluciones' },
+      { id: 'clientes', label: 'Clientes' },
+      { id: 'cxc', label: 'Cuentas por cobrar' },
+      { id: 'rep_ventas', label: 'Reportes de ventas' },
+    ],
+  },
+  {
+    id: 'compras',
+    label: 'Compras / Proveedores',
+    children: [
+      { id: 'ordenes', label: 'Órdenes de compra' },
+      { id: 'proveedores', label: 'Proveedores' },
+      { id: 'cxp', label: 'Cuentas por pagar' },
+      { id: 'rep_compras', label: 'Reportes de compras' },
+    ],
+  },
+  {
+    id: 'inventario',
+    label: 'Inventario',
+    children: [
+      { id: 'productos', label: 'Productos' },
+      { id: 'categorias', label: 'Categorías' },
+      { id: 'kardex', label: 'Kardex (PEPS / UEPS / PROM)' },
+      { id: 'minmax', label: 'Mínimos y máximos' },
+      { id: 'lotes', label: 'Lotes y vencimientos' },
+      { id: 'bodegas', label: 'Bodegas / sucursales' },
+      { id: 'rep_inventario', label: 'Reportes de inventario' },
+    ],
+  },
+  {
+    id: 'caja',
+    label: 'Caja / Finanzas',
+    children: [
+      { id: 'apertura', label: 'Apertura de caja' },
+      { id: 'cierres', label: 'Cierre de caja' },
+      { id: 'arqueo', label: 'Arqueo (faltantes y sobrantes)' },
+      { id: 'metodos_pago', label: 'Métodos de pago' },
+      { id: 'depositos', label: 'Depósitos a banco' },
+      { id: 'flujo', label: 'Flujo de caja (proyectado)' },
+    ],
+  },
+  {
+    id: 'contabilidad',
+    label: 'Contabilidad',
+    children: [
+      { id: 'plan', label: 'Cuentas contables' },
+      { id: 'diario', label: 'Libro diario' },
+      { id: 'mayor', label: 'Libro mayor' },
+      { id: 'estado', label: 'Estado de resultados' },
+      { id: 'balance', label: 'Balance general' },
+      { id: 'activos', label: 'Activos fijos (opcional)' },
+      { id: 'integracion', label: 'Integración contable automática' },
+    ],
+  },
+  {
+    id: 'reportes',
+    label: 'Reportes e Inteligencia',
+    children: [
+      { id: 'informe_general', label: 'Informe general' },
+      { id: 'rep_periodo', label: 'Ventas por periodo / usuario / sucursal' },
+      { id: 'prod_top', label: 'Productos más vendidos' },
+      { id: 'margen', label: 'Margen de utilidad' },
+      { id: 'egresos_ingresos', label: 'Egresos e ingresos detallados' },
+      { id: 'comparativos', label: 'Comparativos mensuales' },
+      { id: 'dashboard_exec', label: 'Dashboard ejecutivo' },
+    ],
+  },
 ]
 
 function Placeholder({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -353,6 +426,7 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
   // Contaduría: cargar contaduria.json (plan de cuentas, diario, mayor, estado, cxc, cxp, balances)
   const [contaduria, setContaduria] = useState<any | null>(null)
   const [contActive, setContActive] = useState<string>('plan')
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   useEffect(() => {
     const stored = localStorage.getItem('contaduriaData')
     if (stored) {
@@ -397,6 +471,169 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
       .catch(() => setEgresos([]))
   }, [])
 
+  // Mapa rápido id -> label para renderizado genérico
+  const idLabelMap: Record<string, string> = menuSections.reduce((acc: Record<string, string>, sec: any) => {
+    (sec.children || []).forEach((c: any) => { acc[c.id] = c.label })
+    return acc
+  }, {})
+
+  // Activos que ya tienen una vista personalizada en el main
+  const handledActives = new Set([
+    'dashboard', 'datos', 'usuarios', 'factura', 'inventario', 'cierres',
+    'rep_ventas', 'rep_devoluciones', 'rep_ingresos', 'rep_egresos', 'impresion', 'contaduria'
+  ])
+
+  function GenericDataView({ id, title }: { id: string; title?: string }) {
+    const [data, setData] = useState<any>(null)
+    const [loading, setLoading] = useState<boolean>(true)
+
+    useEffect(() => {
+      let mounted = true
+      setLoading(true)
+      fetch(`/data-base/${id}.json`).then(r => {
+        if (!r.ok) throw new Error('no-data')
+        return r.json()
+      }).then(d => { if (mounted) setData(d) }).catch(() => { if (mounted) setData(null) }).finally(() => { if (mounted) setLoading(false) })
+      return () => { mounted = false }
+    }, [id])
+
+    if (loading) return <Placeholder title={title || id}><div>Cargando...</div></Placeholder>
+    if (!data) return <Placeholder title={title || id}><div>No hay datos para esta sección.</div></Placeholder>
+
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : (Array.isArray(data.list) ? data.list : null))
+
+    if (arr && arr.length > 0) {
+      const keys = Object.keys(arr[0])
+      return (
+        <Placeholder title={title || id}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="admin-table">
+              <thead>
+                <tr>{keys.map(k => <th key={k}>{k}</th>)}</tr>
+              </thead>
+              <tbody>
+                {arr.map((row: any, idx: number) => (
+                  <tr key={idx}>{keys.map(k => <td key={k}>{typeof row[k] === 'object' ? JSON.stringify(row[k]) : String(row[k] ?? '')}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Placeholder>
+      )
+    }
+
+    return <Placeholder title={title || id}><pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(data, null, 2)}</pre></Placeholder>
+  }
+
+  function DataTableView({ file, title, columns }: { file: string; title?: string; columns?: string[] }) {
+    const [data, setData] = useState<any>(null)
+    const [loading, setLoading] = useState<boolean>(true)
+
+    useEffect(() => {
+      let mounted = true
+      setLoading(true)
+      fetch(`/data-base/${file}.json`).then(r => {
+        if (!r.ok) throw new Error('no-data')
+        return r.json()
+      }).then(d => { if (mounted) setData(d) }).catch(() => { if (mounted) setData(null) }).finally(() => { if (mounted) setLoading(false) })
+      return () => { mounted = false }
+    }, [file])
+
+    if (loading) return <Placeholder title={title || file}><div>Cargando...</div></Placeholder>
+    if (!data) return <Placeholder title={title || file}><div>No hay datos disponibles.</div></Placeholder>
+
+    // obtener array de datos desde keys comunes
+    const arr = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : (Array.isArray(data.list) ? data.list : (Array.isArray(data.users) ? data.users : (Array.isArray(data.invoices) ? data.invoices : (Array.isArray(data.cotizaciones) ? data.cotizaciones : (Array.isArray(data.clientes) ? data.clientes : (Array.isArray(data.productos) ? data.productos : null)))))))
+
+    if (!arr || arr.length === 0) return <Placeholder title={title || file}><div>No hay registros.</div></Placeholder>
+
+    const keys = columns && columns.length ? columns : Object.keys(arr[0])
+
+    return (
+      <Placeholder title={title || file}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ color: '#475569' }}>Registros: <strong>{arr.length}</strong></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { navigator.clipboard?.writeText(JSON.stringify(arr, null, 2)) }} className="btn-opaque">Copiar JSON</button>
+            <button onClick={() => { const blob = new Blob([JSON.stringify(arr, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${file}.json`; a.click(); URL.revokeObjectURL(url); }} className="btn-primary">Exportar</button>
+          </div>
+        </div>
+
+        <div style={{ overflowX: 'auto', background: '#fff', padding: 8, borderRadius: 8 }}>
+          <table className="admin-table" style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                {keys.map(k => <th key={k}>{k}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {arr.map((row: any, idx: number) => (
+                <tr key={idx}>
+                  {keys.map(k => (
+                    <td key={k} style={{ verticalAlign: 'top' }}>{renderCell(row[k])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Placeholder>
+    )
+  }
+
+  function renderCell(value: any) {
+    if (value == null) return '-'
+    if (typeof value === 'number') return `$ ${value.toFixed ? value.toFixed(2) : value}`
+    if (typeof value === 'string' && /\d{4}-\d{2}-\d{2}T?/.test(value)) return value
+    if (typeof value === 'object') return <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{JSON.stringify(value)}</pre>
+    return String(value)
+  }
+
+  const viewConfigs: Record<string, { file: string; title?: string; columns?: string[] }> = {
+    // Administración
+    permisos: { file: 'permisos', title: 'Permisos avanzados' },
+    auditoria: { file: 'auditoria', title: 'Auditoría (bitácora)', columns: ['id', 'user', 'action', 'date'] },
+    respaldos: { file: 'respaldos', title: 'Respaldos / Restauración', columns: ['id', 'date', 'sizeMB', 'status'] },
+
+    // Ventas
+    cai: { file: 'cai', title: 'CAI / Folios', columns: ['id', 'cajero', 'cai', 'rangoDe', 'rangoHasta', 'fechaVencimiento'] },
+    cotizaciones: { file: 'cotizaciones', title: 'Cotizaciones', columns: ['id', 'cliente', 'fecha', 'total'] },
+    notas: { file: 'notas', title: 'Notas de crédito / devoluciones' },
+    clientes: { file: 'clientes', title: 'Clientes', columns: ['id', 'nombre', 'telefono', 'email'] },
+    cxc: { file: 'cxc', title: 'Cuentas por cobrar', columns: ['id', 'cliente', 'monto', 'vence'] },
+
+    // Compras
+    ordenes: { file: 'ordenes', title: 'Órdenes de compra', columns: ['id', 'proveedor', 'fecha', 'total'] },
+    proveedores: { file: 'proveedores', title: 'Proveedores', columns: ['id', 'nombre', 'contacto'] },
+    cxp: { file: 'cxp', title: 'Cuentas por pagar', columns: ['id', 'proveedor', 'monto', 'vence'] },
+    rep_compras: { file: 'rep_compras', title: 'Reportes de compras' },
+
+    // Inventario
+    productos: { file: 'productos', title: 'Productos', columns: ['id', 'sku', 'nombre', 'stock', 'precio'] },
+    categorias: { file: 'categorias', title: 'Categorías', columns: ['id', 'nombre'] },
+    kardex: { file: 'kardex', title: 'Kardex (movimientos)' },
+    minmax: { file: 'minmax', title: 'Mínimos y máximos' },
+    lotes: { file: 'lotes', title: 'Lotes y vencimientos' },
+    bodegas: { file: 'bodegas', title: 'Bodegas / Sucursales' },
+    rep_inventario: { file: 'rep_inventario', title: 'Reportes de inventario' },
+
+    // Caja
+    apertura: { file: 'apertura', title: 'Aperturas de caja' },
+    arqueo: { file: 'arqueo', title: 'Arqueo (faltantes y sobrantes)' },
+    metodos_pago: { file: 'metodos_pago', title: 'Métodos de pago' },
+    depositos: { file: 'depositos', title: 'Depósitos a banco' },
+    flujo: { file: 'flujo', title: 'Flujo de caja (proyectado)' },
+
+    // Reportes adicionales
+    informe_general: { file: 'informe_general', title: 'Informe general' },
+    rep_periodo: { file: 'rep_periodo', title: 'Ventas por periodo' },
+    prod_top: { file: 'prod_top', title: 'Productos más vendidos' },
+    margen: { file: 'margen', title: 'Margen de utilidad' },
+    egresos_ingresos: { file: 'egresos_ingresos', title: 'Egresos e ingresos detallados' },
+    comparativos: { file: 'comparativos', title: 'Comparativos mensuales' },
+    dashboard_exec: { file: 'dashboard_exec', title: 'Dashboard ejecutivo' }
+  }
+
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
@@ -407,9 +644,26 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <nav>
-          {menuItems.map(mi => (
-            <div key={mi.id} onClick={() => setActive(mi.id)} style={{ padding: '10px 8px', borderRadius: 6, cursor: 'pointer', marginBottom: 6, background: active === mi.id ? 'rgba(255,255,255,0.06)' : 'transparent' }}>
-              {mi.label}
+          {menuSections.map(section => (
+            <div key={section.id} style={{ marginBottom: 6 }}>
+              {section.children && section.children.length > 0 ? (
+                <div>
+                  <div onClick={() => setExpandedSections(s => ({ ...s, [section.id]: !s[section.id] }))} style={{ padding: '10px 8px', borderRadius: 6, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: Object.keys(section).length && expandedSections[section.id] ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
+                    <span>{section.label}</span>
+                    <span style={{ opacity: 0.7 }}>{expandedSections[section.id] ? '▾' : '▸'}</span>
+                  </div>
+
+                  {expandedSections[section.id] && (
+                    <div style={{ marginLeft: 8, marginTop: 6 }}>
+                      {section.children.map((ch: any) => (
+                        <div key={ch.id} onClick={() => setActive(ch.id)} style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer', marginBottom: 4, background: active === ch.id ? 'rgba(255,255,255,0.04)' : 'transparent' }}>{ch.label}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div onClick={() => setActive(section.id)} style={{ padding: '10px 8px', borderRadius: 6, cursor: 'pointer', marginBottom: 6, background: active === section.id ? 'rgba(255,255,255,0.06)' : 'transparent' }}>{section.label}</div>
+              )}
             </div>
           ))}
         </nav>
@@ -1258,6 +1512,16 @@ export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
               )}
             </div>
           </div>
+        )}
+
+        {/* Vistas específicas definidas en viewConfigs */}
+        {viewConfigs[active] && (
+          <DataTableView file={viewConfigs[active].file} title={viewConfigs[active].title || idLabelMap[active]} columns={viewConfigs[active].columns} />
+        )}
+
+        {/* Vistas genéricas para sub-items creados en public/data-base/*.json que no tienen vista específica */}
+        {idLabelMap[active] && !handledActives.has(active) && !viewConfigs[active] && (
+          <GenericDataView id={active} title={idLabelMap[active]} />
         )}
       </main>
     </div>

@@ -1,0 +1,5 @@
+{
+  "notas": [
+    { "id": 301, "facturaId": 1001, "tipo": "credito", "monto": 50.00, "fecha": "2025-11-07" }
+  ]
+}
