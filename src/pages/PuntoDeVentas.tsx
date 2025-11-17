@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DevolucionCaja from './DevolucionCaja'
+import IngresoEfectivo from './IngresoEfectivo'
+import CotizacionesGuardadas from './CotizacionesGuardadas'
+import PedidosEnLinea from './PedidosEnLinea'
+import CorteCajaParcial from './CorteCajaParcial'
+import CorteCajaTotal from './CorteCajaTotal'
 
 type Producto = {
   id: number;
@@ -103,6 +109,10 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [view, setView] = useState<string | null>(null);
+  const [entradas, setEntradas] = useState<any[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedEntrada, setSelectedEntrada] = useState<any | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -111,6 +121,34 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  useEffect(() => {
+    // Cargar inventario público (dev) — contiene imágenes y coincide con entradas
+    fetch('/data-base/inventario.json')
+      .then(r => r.json())
+      .then(data => {
+        if (data && Array.isArray(data.items)) setEntradas(data.items)
+        console.log('inventario cargado:', data && data.items ? data.items.length : 0)
+      }).catch((err) => {
+        console.warn('Error cargando inventario:', err)
+      })
+  }, [])
+
+  const openUbicacion = (sku: string) => {
+    console.log('openUbicacion', sku, 'entradasCount', entradas.length)
+    const ent = entradas.find(e => e.sku === sku) || null;
+    console.log('entrada encontrada', ent)
+    setSelectedEntrada(ent);
+    setModalOpen(true);
+  }
+  if (view) {
+    if (view === 'DevolucionCaja') return <DevolucionCaja onBack={() => setView(null)} />
+    if (view === 'IngresoEfectivo') return <IngresoEfectivo onBack={() => setView(null)} />
+    if (view === 'CotizacionesGuardadas') return <CotizacionesGuardadas onBack={() => setView(null)} />
+    if (view === 'PedidosEnLinea') return <PedidosEnLinea onBack={() => setView(null)} />
+    if (view === 'CorteCajaParcial') return <CorteCajaParcial onBack={() => setView(null)} />
+    if (view === 'CorteCajaTotal') return <CorteCajaTotal onBack={() => setView(null)} />
+  }
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'system-ui, sans-serif', background: '#f8fafc' }}>
@@ -133,12 +171,12 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
           {menuOpen && (
             <div style={{ position: 'absolute', right: 0, marginTop: 8, background: 'white', color: '#0b1724', borderRadius: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.16)', minWidth: 220, zIndex: 60, overflow: 'hidden' }}>
               <button onClick={onLogout} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Cerrar Sesión</button>
-              <button onClick={() => alert('Devolución de caja (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Devolución de caja</button>
-              <button onClick={() => alert('Ingreso de efectivo (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Ingreso de efectivo</button>
-              <button onClick={() => alert('Cotizaciones guardadas (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Cotizaciones guardadas</button>
-              <button onClick={() => alert('Pedidos en línea (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Pedidos en línea</button>
-              <button onClick={() => alert('Corte de caja parcial (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja parcial</button>
-              <button onClick={() => alert('Corte de caja total (placeholder)')} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja total</button>
+              <button onClick={() => { setMenuOpen(false); setView('DevolucionCaja') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Devolución de caja</button>
+              <button onClick={() => { setMenuOpen(false); setView('IngresoEfectivo') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Ingreso de efectivo</button>
+              <button onClick={() => { setMenuOpen(false); setView('CotizacionesGuardadas') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Cotizaciones guardadas</button>
+              <button onClick={() => { setMenuOpen(false); setView('PedidosEnLinea') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Pedidos en línea</button>
+              <button onClick={() => { setMenuOpen(false); setView('CorteCajaParcial') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja parcial</button>
+              <button onClick={() => { setMenuOpen(false); setView('CorteCajaTotal') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja total</button>
             </div>
           )}
         </div>
@@ -181,6 +219,7 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
+                    <th style={thStyle}></th>
                     <th style={thStyle}>SKU</th>
                     <th style={thStyle}>Nombre</th>
                     <th style={thStyle}>Categoría</th>
@@ -192,13 +231,18 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
                 <tbody>
                   {productosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: '1rem' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: '1rem' }}>
                         No se encontraron productos
                       </td>
                     </tr>
                   ) : (
                     productosFiltrados.map(prod => (
                       <tr key={prod.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={tdStyle}>
+                          <button type="button" onClick={() => openUbicacion(prod.sku)} title="Ver ubicación" className="btn-opaque" style={{ padding: 6, borderRadius: 6 }}>
+                            🔍
+                          </button>
+                        </td>
                         <td style={tdStyle}><code style={skuStyle}>{prod.sku}</code></td>
                         <td style={tdStyle}><strong>{prod.nombre}</strong></td>
                         <td style={tdStyle}><span style={{ color: '#64748b' }}>{prod.categoria}</span></td>
@@ -302,7 +346,40 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
         </div>
       </div>
 
-    
+      {/* Modal de ubicación */}
+      {modalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ width: 520, maxWidth: '95%', background: 'white', borderRadius: 10, padding: 18, boxShadow: '0 12px 40px rgba(2,6,23,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>{selectedEntrada ? selectedEntrada.producto : 'Ubicación'}</h3>
+              <button onClick={() => { setModalOpen(false); setSelectedEntrada(null) }} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
+            </div>
+
+            {selectedEntrada ? (
+              <div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <img src={selectedEntrada.imagen} alt={selectedEntrada.producto} style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: '6px 0' }}><strong>SKU:</strong> {selectedEntrada.sku}</p>
+                    <p style={{ margin: '6px 0' }}><strong>Descripción:</strong> {selectedEntrada.descripcion}</p>
+                    <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: '#f8fafc' }}>
+                      <p style={{ margin: 0 }}><strong>Sección:</strong> {selectedEntrada.ubicacion?.seccion}</p>
+                      <p style={{ margin: 0 }}><strong>Bloque:</strong> {selectedEntrada.ubicacion?.bloque}</p>
+                      <p style={{ margin: 0 }}><strong>Estante:</strong> {selectedEntrada.ubicacion?.estante}</p>
+                    </div>
+                    <p style={{ marginTop: 8, color: '#6b7280' }}><small>Cantidad: {selectedEntrada.cantidad}</small></p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p>No se encontró información de ubicación para este artículo.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
