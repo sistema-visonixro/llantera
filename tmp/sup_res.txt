@@ -1,0 +1,5 @@
+Rows: 2
+[
+  { id: 1, username: 'admin', role: 'admin' },
+  { id: 2, username: 'cajero2', role: 'cajero' }
+]
