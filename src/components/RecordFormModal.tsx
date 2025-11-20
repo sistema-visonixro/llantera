@@ -60,6 +60,7 @@ export default function RecordFormModal({
     if (
       col.includes("publicacion") ||
       col.includes("exento") ||
+      col.includes("aplica_impuesto") ||
       col === "publicacion_web"
     ) {
       return (

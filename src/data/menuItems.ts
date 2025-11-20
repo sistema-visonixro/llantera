@@ -15,7 +15,8 @@ export const menuItems: any[] = [
     children: [
       { id: 'cai', label: 'Gestio de CAI por cajas' },
       { id: 'facturas', label: 'Facturas (ventas)' },
-      { id: 'historial_facturas', label: 'Historial de facturas' }
+      { id: 'historial_facturas', label: 'Historial de facturas' },
+      { id: 'impuestos', label: 'Impuestos' }
     ]
   },
   {
@@ -35,7 +36,7 @@ export const menuItems: any[] = [
     label: 'Compras y Proveedores',
     children: [
       { id: 'compras_main', label: 'Compras (compras)' },
-      { id: 'compras_detalle', label: 'Detalle de compras (compras_detalle)' },
+      { id: 'compras_detalle', label: 'Detalle de Compras (Líneas)' },
       { id: 'proveedores', label: 'Proveedores (proveedores)' },
       { id: 'devoluciones_proveedores', label: 'Devolución a Proveedores' }
     ]

@@ -8,6 +8,8 @@ export default function InventarioTable() {
     items: number;
     publicadas: number;
     exentos: number;
+    aplica_impuesto_18: number;
+    aplica_impuesto_turistico: number;
   } | null>(null);
   const [selectedCategoria, setSelectedCategoria] = useState<string | "">("");
   const [selectedMarca, setSelectedMarca] = useState<string | "">("");
@@ -22,7 +24,7 @@ export default function InventarioTable() {
         // fetch relevant fields and compute counts client-side
         const res = await sup
           .from("inventario")
-          .select("id,categoria,marca,publicacion_web,exento");
+          .select("id,categoria,marca,publicacion_web,exento,aplica_impuesto_18,aplica_impuesto_turistico");
         if (!mounted) return;
         const rows = Array.isArray(res.data) ? res.data : [];
         const categoriasSet = new Set(rows.map((r: any) => (r.categoria ?? "")).filter(Boolean));
@@ -37,12 +39,16 @@ export default function InventarioTable() {
           return s === "1" || s === "true" || s === "t" || s === "si" || s === "s" || s === "yes";
         };
         const exentos = rows.filter((r: any) => isExento(r.exento)).length;
+        const aplica18 = rows.filter((r: any) => isExento(r.aplica_impuesto_18)).length;
+        const aplicaTur = rows.filter((r: any) => isExento(r.aplica_impuesto_turistico)).length;
         setSummary({
           categorias: categoriasSet.size,
           marcas: marcasSet.size,
           items,
           publicadas,
           exentos,
+          aplica_impuesto_18: aplica18,
+          aplica_impuesto_turistico: aplicaTur,
         });
         setCategoriasList(Array.from(categoriasSet).sort());
         setMarcasList(Array.from(marcasSet).sort());
@@ -66,6 +72,8 @@ export default function InventarioTable() {
         <Card label="Items" value={summary ? String(summary.items) : "..."} />
         <Card label="Publicadas en web" value={summary ? String(summary.publicadas) : "..."} />
         <Card label="Exentos" value={summary ? String(summary.exentos) : "..."} />
+        <Card label="Aplica impuesto 18%" value={summary ? String(summary.aplica_impuesto_18) : "..."} />
+        <Card label="Impuesto turístico" value={summary ? String(summary.aplica_impuesto_turistico) : "..."} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
@@ -110,7 +118,7 @@ export default function InventarioTable() {
 
       <SupabaseTable
         table="inventario"
-        select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, publicacion_web, exento, creado_en,imagen"
+        select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, publicacion_web, exento, aplica_impuesto_18, aplica_impuesto_turistico, creado_en,imagen"
         title=""
         order={["id","categoria","marca"]}
         filters={{ categoria: selectedCategoria || undefined, marca: selectedMarca || undefined }}
@@ -124,6 +132,8 @@ export default function InventarioTable() {
           "descripcion",
           "publicacion_web",
           "exento",
+          "aplica_impuesto_18",
+          "aplica_impuesto_turistico",
           "creado_en",
         ]}
         searchColumns={["nombre", "sku", "descripcion", "codigo_barras", "modelo"]}

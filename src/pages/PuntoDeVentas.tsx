@@ -15,6 +15,8 @@ type Producto = {
   precio?: number;
   categoria?: string;
   exento?: boolean;
+  aplica_impuesto_18?: boolean;
+  aplica_impuesto_turistico?: boolean;
   stock?: number;
   imagen?: string;
 };
@@ -35,7 +37,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('Todas');
-  const [taxRate, setTaxRate] = useState<number>(0.15) // default 15%
+  const [taxRate, setTaxRate] = useState<number>(0.15) // default ISV 15%
+  const [tax18Rate, setTax18Rate] = useState<number>(0) // default 0.18 (18%)
+  const [taxTouristRate, setTaxTouristRate] = useState<number>(0) // default 0.04 (4%)
 
   const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))]
 
@@ -46,9 +50,46 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   );
 
   const subtotal = carrito.reduce((sum, item) => sum + (Number(item.producto.precio || 0) * item.cantidad), 0);
-  const taxableSubtotal = carrito.reduce((sum, item) => sum + ((item.producto.exento ? 0 : (Number(item.producto.precio || 0) * item.cantidad))), 0);
-  const iva = taxableSubtotal * taxRate;
-  const total = subtotal + iva;
+  // Compute taxes per-item following rules:
+  // - if exento => no taxes
+  // - else if aplica_impuesto_18 => base tax comes from tax18Rate (id=2) and counts towards 'Impuesto 18%'
+  // - else => base tax comes from taxRate (id=1) and counts towards 'ISV'
+  // - tourist tax (taxTouristRate, id=3) is additive when aplica_impuesto_turistico is true
+  let isvTotal = 0
+  let imp18Total = 0
+  let impTouristTotal = 0
+  for (const item of carrito) {
+    const price = Number(item.producto.precio || 0) * item.cantidad
+    const exento = Boolean(item.producto.exento)
+    const aplica18 = Boolean((item.producto as any).aplica_impuesto_18)
+    const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico)
+    // debug per-item
+    // console.debug('PV: tax calc item', { id: item.producto.id, price, exento, aplica18, aplicaTur, taxRate, tax18Rate, taxTouristRate })
+    if (exento) continue
+    if (aplica18) {
+      const base = price * (tax18Rate || 0)
+      imp18Total += base
+    } else {
+      const base = price * (taxRate || 0)
+      isvTotal += base
+    }
+    if (aplicaTur) {
+      impTouristTotal += price * (taxTouristRate || 0)
+    }
+  }
+  const total = subtotal + isvTotal + imp18Total + impTouristTotal
+  // Per-item tax breakdown for UI/debugging
+  const perItemTaxes = carrito.map(item => {
+    const price = Number(item.producto.precio || 0) * item.cantidad
+    const exento = Boolean(item.producto.exento)
+    const aplica18 = Boolean((item.producto as any).aplica_impuesto_18)
+    const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico)
+    if (exento) return { id: item.producto.id, nombre: item.producto.nombre, price, isv: 0, imp18: 0, tur: 0, totalTax: 0 }
+    const isv = aplica18 ? 0 : price * (taxRate || 0)
+    const imp18 = aplica18 ? price * (tax18Rate || 0) : 0
+    const tur = aplicaTur ? price * (taxTouristRate || 0) : 0
+    return { id: item.producto.id, nombre: item.producto.nombre, price, isv, imp18, tur, totalTax: isv + imp18 + tur }
+  })
 
   const agregarAlCarrito = (producto: Producto) => {
     if ((producto.stock ?? 0) <= 0) return;
@@ -92,7 +133,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   ${carrito.map(i => `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(Number(i.producto.precio || 0) * i.cantidad).toFixed(2)}`).join('\n')}
   ----------------------------------------
   Subtotal: L${subtotal.toFixed(2)}
-  ISV (${(taxRate*100).toFixed(2)}%): L${iva.toFixed(2)}
+  ISV (${(taxRate*100).toFixed(2)}%): L${isvTotal.toFixed(2)}
+  Impuesto 18%: L${imp18Total.toFixed(2)}
+  Impuesto turístico (${(taxTouristRate*100).toFixed(2)}%): L${impTouristTotal.toFixed(2)}
   TOTAL: L${total.toFixed(2)}
   ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
     `.trim();
@@ -180,8 +223,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const factura = opts.factura || String(Math.floor(Math.random() * 900000) + 100000)
     const Ahora = new Date().toLocaleString()
     const subtotal = subtotalCalc()
-    const impuesto = (taxableSubtotalCalc() * taxRate)
-    const ft = subtotal + impuesto
+    const impuestoISV = isvTotal
+    const impuesto18 = imp18Total
+    const impuestoTuristico = impTouristTotal
+    const ft = subtotal + impuestoISV + impuesto18 + impuestoTuristico
     const tabla = buildProductosTabla()
     const titulo = tipo === 'factura' ? 'FACTURA' : 'COTIZACIÓN'
     const footerNote = tipo === 'factura' ? '' : '<div style="margin-top:12px;text-align:center;color:#475569">Válida por 24 horas desde la fecha de emisión.</div>'
@@ -205,7 +250,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     <table><thead><tr><th>Descripción</th><th>Cant</th><th>Precio</th><th>Total</th></tr></thead><tbody>
     ${tabla}
     </tbody></table>
-    <div style="margin-top:8px;text-align:right"><div>SubTotal: L ${subtotal.toFixed(2)}</div><div>ISV (${(taxRate*100).toFixed(2)}%): L ${impuesto.toFixed(2)}</div><h3>Total: L ${ft.toFixed(2)}</h3></div>
+    <div style="margin-top:8px;text-align:right"><div>SubTotal: L ${subtotal.toFixed(2)}</div><div>ISV (${(taxRate*100).toFixed(2)}%): L ${impuestoISV.toFixed(2)}</div><div>Impuesto 18%: L ${impuesto18.toFixed(2)}</div><div>Impuesto turístico (${(taxTouristRate*100).toFixed(2)}%): L ${impuestoTuristico.toFixed(2)}</div><h3>Total: L ${ft.toFixed(2)}</h3></div>
     ${footerNote}
     <div style="margin-top:20px;text-align:center"><small>Gracias por su preferencia</small></div>
     </div><script>window.onload=function(){window.print();setTimeout(()=>window.close(),800);}</script></body></html>`
@@ -319,7 +364,23 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     // Cargar inventario público (dev) — contiene imágenes y coincide con entradas
     fetch('/data-base/inventario.json')
-      .then(r => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          console.warn('inventario.json no disponible, status', r.status)
+          return null
+        }
+        const ct = r.headers.get('content-type') || ''
+        if (!ct.includes('application/json')) {
+          console.warn('inventario.json no es JSON, content-type:', ct)
+          return null
+        }
+        try {
+          return await r.json()
+        } catch (err) {
+          console.warn('Error parseando inventario.json:', err)
+          return null
+        }
+      })
       .then(data => {
         if (data && Array.isArray(data.items)) setEntradas(data.items)
         console.log('inventario cargado:', data && data.items ? data.items.length : 0)
@@ -333,7 +394,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     let mounted = true
     ;(async () => {
       try {
-        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion, exento')
+        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico')
         if (invErr) throw invErr
         const invRows = Array.isArray(invData) ? invData : []
         const ids = invRows.map((r: any) => String(r.id))
@@ -350,7 +411,6 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           if (pricesErr) throw pricesErr
           console.debug('PV: precios total rows', Array.isArray(prices) ? prices.length : 0)
           if (Array.isArray(prices)) {
-            // build map but only keep first (latest) price per producto_id
             for (const p of prices) {
               const pid = String((p as any).producto_id)
               if (!priceMap[pid]) priceMap[pid] = Number((p as any).precio || 0)
@@ -391,6 +451,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           imagen: r.imagen,
           precio: (priceMap[String(r.id)] !== undefined ? priceMap[String(r.id)] : (r.precio !== undefined ? Number(r.precio) : 0)),
           exento: (r.exento === true || String(r.exento) === 'true' || Number(r.exento) === 1) || false,
+          aplica_impuesto_18: (r.aplica_impuesto_18 === true || String(r.aplica_impuesto_18) === 'true' || Number(r.aplica_impuesto_18) === 1) || false,
+          aplica_impuesto_turistico: (r.aplica_impuesto_turistico === true || String(r.aplica_impuesto_turistico) === 'true' || Number(r.aplica_impuesto_turistico) === 1) || false,
           stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
         }))
 
@@ -425,22 +487,62 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     let mounted = true
     ;(async () => {
       try {
-        const { data, error } = await supabase
-          .from('impuesto')
-          .select('valor,porcentaje,tasa')
-          .order('id', { ascending: true })
-          .limit(1)
-          .maybeSingle()
+        // Cargar todas las filas de impuesto y mapear por id (solo columna existente)
+        const { data, error } = await supabase.from('impuesto').select('id, impuesto_venta')
         if (error) throw error
-        if (!data) return
-        // prefer fields in order: valor, porcentaje, tasa
-        const rawVal = (data as any).valor ?? (data as any).porcentaje ?? (data as any).tasa
-        if (rawVal !== undefined && rawVal !== null) {
-          let num = Number(rawVal)
-          if (!Number.isNaN(num)) {
-            if (num > 1) num = num / 100 // convert percent like 15 -> 0.15
-            if (mounted) setTaxRate(num)
+        if (!data || !Array.isArray(data)) return
+        const findVal = (id: number) => {
+          const row = (data as any[]).find(r => Number(r.id) === id)
+          if (!row) return null
+          const raw = row.impuesto_venta
+          if (raw === undefined || raw === null) return null
+          const n = Number(raw)
+          if (Number.isNaN(n)) return null
+          return n > 1 ? n / 100 : n
+        }
+        const v1 = findVal(1)
+        const v2 = findVal(2)
+        const v3 = findVal(3)
+        if (mounted) {
+          // Prefer resolved values, but provide fallbacks: try fetching single ids if missing, then default constants
+          let finalV1 = v1
+          let finalV2 = v2
+          let finalV3 = v3
+          try {
+            if ((finalV1 === null || finalV1 === 0) && mounted) {
+              const r1 = await supabase.from('impuesto').select('impuesto_venta').eq('id', 1).maybeSingle()
+              const raw1 = (r1 as any)?.data?.impuesto_venta ?? null
+              const n1 = raw1 == null ? null : Number(raw1)
+              if (n1 != null && !Number.isNaN(n1)) finalV1 = n1 > 1 ? n1 / 100 : n1
+            }
+            if ((finalV2 === null || finalV2 === 0) && mounted) {
+              const r2 = await supabase.from('impuesto').select('impuesto_venta').eq('id', 2).maybeSingle()
+              const raw2 = (r2 as any)?.data?.impuesto_venta ?? null
+              const n2 = raw2 == null ? null : Number(raw2)
+              if (n2 != null && !Number.isNaN(n2)) finalV2 = n2 > 1 ? n2 / 100 : n2
+            }
+            if ((finalV3 === null || finalV3 === 0) && mounted) {
+              const r3 = await supabase.from('impuesto').select('impuesto_venta').eq('id', 3).maybeSingle()
+              const raw3 = (r3 as any)?.data?.impuesto_venta ?? null
+              const n3 = raw3 == null ? null : Number(raw3)
+              if (n3 != null && !Number.isNaN(n3)) finalV3 = n3 > 1 ? n3 / 100 : n3
+            }
+          } catch (err) {
+            console.warn('PV: fallback single-id impuesto fetch failed', err)
           }
+
+          // final fallbacks to sensible defaults if still missing
+          if (finalV1 === null || finalV1 === 0) finalV1 = 0.15
+          if (finalV2 === null || finalV2 === 0) finalV2 = 0.18
+          if (finalV3 === null || finalV3 === 0) finalV3 = 0.04
+
+          setTaxRate(finalV1)
+          setTax18Rate(finalV2)
+          setTaxTouristRate(finalV3)
+
+          // debug log loaded impuesto rows and resolved rates
+          console.debug('PV: impuestos raw rows', data)
+          console.debug('PV: resolved tax rates', { taxRate: finalV1, tax18Rate: finalV2, taxTouristRate: finalV3 })
         }
       } catch (e) {
         console.warn('Error cargando impuesto en PV:', e)
@@ -685,12 +787,31 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   <span>L{subtotal.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 500 }}>
-                  <span>ISV ({(taxRate*100).toFixed(2)}%):</span>
-                  <span>L{iva.toFixed(2)}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div>ISV ({(taxRate*100).toFixed(2)}%): <strong>L{isvTotal.toFixed(2)}</strong></div>
+                    <div>Impuesto 18%: <strong>L{imp18Total.toFixed(2)}</strong></div>
+                    <div>Impuesto turístico ({(taxTouristRate*100).toFixed(2)}%): <strong>L{impTouristTotal.toFixed(2)}</strong></div>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 700, marginTop: 8, color: '#1e293b' }}>
                   <span>TOTAL:</span>
                   <span>L{total.toFixed(2)}</span>
+                </div>
+
+                {/* Debug / breakdown visible to help confirm taxes */}
+                <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
+                  <div>Tax rates: ISV {(taxRate*100).toFixed(2)}%, 18% {(tax18Rate*100).toFixed(2)}%, Tur {(taxTouristRate*100).toFixed(2)}%</div>
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ cursor: 'pointer' }}>Ver desglose por ítem</summary>
+                    <div style={{ marginTop: 8 }}>
+                      {perItemTaxes.map(it => (
+                        <div key={String(it.id)} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #eef2ff' }}>
+                          <div style={{ color: '#0f172a' }}>{it.nombre} — L{it.price.toFixed(2)}</div>
+                          <div style={{ color: '#0f172a' }}>ISV: L{it.isv.toFixed(2)} • 18%: L{it.imp18.toFixed(2)} • Tur: L{it.tur.toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
 
                 {/* BOTONES DE ACCIÓN */}
@@ -839,7 +960,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 <label style={{ fontSize: 13, color: '#334155' }}>RTN o Identificación</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input ref={clienteNombreRef} value={clienteRTN} onChange={e => { handleRTNChange(e.target.value) }} placeholder="00000000000000" style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  <button onClick={() => setClienteSearchOpen(true)} className="btn-opaque" style={{ padding: '8px 10px' }}>Buscar</button>
+                  {clienteTipo === 'juridico' && (
+                    <button onClick={() => setClienteSearchOpen(true)} className="btn-opaque" style={{ padding: '8px 10px' }}>Buscar</button>
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

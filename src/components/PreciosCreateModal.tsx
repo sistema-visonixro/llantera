@@ -17,6 +17,9 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
   const [costo, setCosto] = useState<number | null>(null)
   const [impuestoValor, setImpuestoValor] = useState<number | null>(null)
   const [impuestoMonto, setImpuestoMonto] = useState<number | null>(null)
+  const [exentoFlag, setExentoFlag] = useState<boolean | null>(null)
+  const [aplica18Flag, setAplica18Flag] = useState<boolean | null>(null)
+  const [aplicaTurFlag, setAplicaTurFlag] = useState<boolean | null>(null)
   const [margenPct, setMargenPct] = useState<number | null>(null)
   const [rentabilidadPct, setRentabilidadPct] = useState<number | null>(null)
   const [calculando, setCalculando] = useState(false)
@@ -51,6 +54,21 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
     try {
       // productoId is non-null here due to validation above
       await onCreate({ producto_id: productoId as string, precio: precio })
+
+      // Persistir flags en la tabla `inventario` si el usuario cambió/toggeó valores
+      try {
+        const payload: any = {}
+        if (exentoFlag !== null) payload.exento = exentoFlag
+        if (aplica18Flag !== null) payload.aplica_impuesto_18 = aplica18Flag
+        if (aplicaTurFlag !== null) payload.aplica_impuesto_turistico = aplicaTurFlag
+        if (Object.keys(payload).length > 0) {
+          const { error: updErr } = await supabase.from('inventario').update(payload).eq('id', productoId)
+          if (updErr) console.warn('Error actualizando inventario flags:', updErr)
+        }
+      } catch (err) {
+        console.warn('Error al persistir flags en inventario:', err)
+      }
+
       onClose()
     } catch (err: any) {
       setError(err?.message || String(err))
@@ -58,6 +76,7 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
       setSaving(false)
     }
   }
+ 
 
   // Helper to parse number from string inputs
   function parseNumberInput(v: string) {
@@ -87,16 +106,56 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
         if (!mounted) return
         setCosto(avg)
 
-        // Obtener impuesto (suponemos una única fila con impuesto_venta como porcentaje, p.ej. 18.00)
-        const { data: impData } = await supabase.from('impuesto').select('impuesto_venta').limit(1).order('id', { ascending: true })
-        const impuestoRow = Array.isArray(impData) && impData.length > 0 ? impData[0] : null
-        const impuestoVal = impuestoRow ? Number(impuestoRow.impuesto_venta) : 0
-        if (!mounted) return
-        setImpuestoValor(impuestoVal)
+        // Cargar información del producto (exento, aplica_impuesto_18, aplica_impuesto_turistico)
+        let prodExento = false
+        let prodAplica18 = false
+        let prodAplicaTur = false
+        try {
+          const { data: prodData, error: prodErr } = await supabase.from('inventario').select('exento,aplica_impuesto_18,aplica_impuesto_turistico').eq('id', productoId).single()
+          if (!prodErr && prodData) {
+            prodExento = Boolean(prodData.exento)
+            prodAplica18 = Boolean(prodData.aplica_impuesto_18)
+            prodAplicaTur = Boolean(prodData.aplica_impuesto_turistico)
+            // initialize UI toggles if they are null (first load)
+            if (exentoFlag === null) setExentoFlag(prodExento)
+            if (aplica18Flag === null) setAplica18Flag(prodAplica18)
+            if (aplicaTurFlag === null) setAplicaTurFlag(prodAplicaTur)
+          }
+        } catch (err) {
+          // ignore
+        }
 
-        // Convertir impuestoVal a tasa (si está en 18 -> 0.18)
-        const tasa = impuestoVal > 1 ? impuestoVal / 100 : impuestoVal
+        // Obtener impuestos (ids 1 = venta, 2 = 18%, 3 = turistico)
+        const { data: impAll } = await supabase.from('impuesto').select('id, impuesto_venta')
+        const impMap: Record<string, number> = {};
+        if (Array.isArray(impAll)) {
+          impAll.forEach((r: any) => {
+            impMap[String(r.id)] = Number(r.impuesto_venta)
+          })
+        }
+
+        // Determinar la tasa base según reglas: exento -> 0, si aplica 18% -> id=2, else id=1
+        const effectiveExento = exentoFlag !== null ? exentoFlag : prodExento
+        const effective18 = aplica18Flag !== null ? aplica18Flag : prodAplica18
+        const effectiveTur = aplicaTurFlag !== null ? aplicaTurFlag : prodAplicaTur
+
+        let basePct = 0
+        if (effectiveExento) {
+          basePct = 0
+        } else if (effective18) {
+          basePct = impMap['2'] ?? impMap['1'] ?? 0
+        } else {
+          basePct = impMap['1'] ?? 0
+        }
+
+        // Agregar impuesto turístico si aplica
+        let turPct = 0
+        if (effectiveTur) turPct = impMap['3'] ?? 0
+
+        const totalPct = (basePct || 0) + (turPct || 0)
+        const tasa = totalPct > 1 ? totalPct / 100 : totalPct
         const impuestoCalc = precioNum * tasa
+        setImpuestoValor(totalPct)
         setImpuestoMonto(impuestoCalc)
 
         const margenAbs = precioNum - avg
@@ -113,7 +172,7 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
     }
     compute()
     return () => { mounted = false }
-  }, [productoId, precio])
+  }, [productoId, precio, exentoFlag, aplica18Flag, aplicaTurFlag])
 
   if (!open) return null
 
@@ -127,6 +186,21 @@ export default function PreciosCreateModal({ open, onClose, products, availableC
             <option value="">-- seleccionar producto --</option>
             {products.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" checked={Boolean(exentoFlag)} onChange={(e) => setExentoFlag(e.target.checked)} />
+              <span style={{ fontSize: 13 }}>Exento (si activo, impuesto = 0)</span>
+            </label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" checked={Boolean(aplica18Flag)} onChange={(e) => setAplica18Flag(e.target.checked)} />
+              <span style={{ fontSize: 13 }}>Usar impuesto 18% (id=2)</span>
+            </label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="checkbox" checked={Boolean(aplicaTurFlag)} onChange={(e) => setAplicaTurFlag(e.target.checked)} />
+              <span style={{ fontSize: 13 }}>Impuesto turístico (+ id=3)</span>
+            </label>
+          </div>
 
           <label style={{ fontSize: 13 }}>Precio</label>
           <input className="input" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="0.00" />
