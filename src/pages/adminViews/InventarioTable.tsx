@@ -1,14 +1,35 @@
-import React from 'react'
-import SupabaseTable from '../../components/SupabaseTable'
+import React from "react";
+import SupabaseTable from "../../components/SupabaseTable";
 
 export default function InventarioTable() {
   return (
     <SupabaseTable
-      table="Inventario"
-      select="id, nombre, sku, descripcion, creado_en"
-      title="Inventario (tabla `Inventario`)"
-      columns={["id", "nombre", "sku", "descripcion", "creado_en"]}
-      searchColumns={["nombre", "sku", "descripcion"]}
+      table="inventario"
+      select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, publicacion_web, exento, creado_en"
+      title="Inventario (tabla `inventario`)"
+      columns={[
+        "sku",
+        "nombre",
+        "imagen",
+        "categoria",
+        "marca",
+        "descripcion",
+        "modelo",
+        "publicacion_web",
+        "exento",
+        "creado_en",
+      ]}
+      searchColumns={[
+        "nombre",
+        "sku",
+        "descripcion",
+        "codigo_barras",
+        "modelo",
+      ]}
+      formExclude={["codigo_barras", "creado_en"]}
+      allowAdd={true}
+      allowEdit={true}
+      allowDelete={true}
     />
-  )
+  );
 }
