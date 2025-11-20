@@ -6,6 +6,7 @@ import PedidosEnLinea from './PedidosEnLinea'
 import CorteCajaParcial from './CorteCajaParcial'
 import CorteCajaTotal from './CorteCajaTotal'
 import supabase from '../lib/supabaseClient'
+import ClienteSearchModal from '../components/ClienteSearchModal'
 
 type Producto = {
   id: string;
@@ -13,6 +14,7 @@ type Producto = {
   nombre?: string;
   precio?: number;
   categoria?: string;
+  exento?: boolean;
   stock?: number;
   imagen?: string;
 };
@@ -33,6 +35,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('Todas');
+  const [taxRate, setTaxRate] = useState<number>(0.15) // default 15%
 
   const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))]
 
@@ -43,7 +46,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   );
 
   const subtotal = carrito.reduce((sum, item) => sum + (Number(item.producto.precio || 0) * item.cantidad), 0);
-  const iva = subtotal * 0.15;
+  const taxableSubtotal = carrito.reduce((sum, item) => sum + ((item.producto.exento ? 0 : (Number(item.producto.precio || 0) * item.cantidad))), 0);
+  const iva = taxableSubtotal * taxRate;
   const total = subtotal + iva;
 
   const agregarAlCarrito = (producto: Producto) => {
@@ -88,13 +92,214 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   ${carrito.map(i => `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(Number(i.producto.precio || 0) * i.cantidad).toFixed(2)}`).join('\n')}
   ----------------------------------------
   Subtotal: L${subtotal.toFixed(2)}
-  ISV (15%): L${iva.toFixed(2)}
+  ISV (${(taxRate*100).toFixed(2)}%): L${iva.toFixed(2)}
   TOTAL: L${total.toFixed(2)}
   ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
     `.trim();
     alert(ticket);
     if (tipo === 'factura') vaciarCarrito();
   };
+
+  // Facturación: modal de selección y generación de factura HTML
+  const [facturarModalOpen, setFacturarModalOpen] = useState(false)
+  const [printingMode, setPrintingMode] = useState<'factura'|'cotizacion'>('factura')
+  const [clienteNormalModalOpen, setClienteNormalModalOpen] = useState(false)
+  const [clienteSearchOpen, setClienteSearchOpen] = useState(false)
+  const [clienteNombre, setClienteNombre] = useState('')
+  const [clienteRTN, setClienteRTN] = useState('')
+    const clienteNombreRef = useRef<HTMLInputElement | null>(null);
+    const clienteNombreInputRef = useRef<HTMLInputElement | null>(null);
+  const [clienteTipo, setClienteTipo] = useState<'final'|'normal'|'juridico'>('final')
+  const [clienteTelefono, setClienteTelefono] = useState('')
+  const [clienteCorreo, setClienteCorreo] = useState('')
+  const [clienteExonerado, setClienteExonerado] = useState<boolean>(false)
+  const [createClienteModalOpen, setCreateClienteModalOpen] = useState(false)
+
+  // Autocomplete RTN -> nombre: intenta traer nombre desde `clientenatural` o `clientejuridico` según `clienteTipo`
+  const handleRTNChange = async (val: string) => {
+    setClienteRTN(val)
+    if (!val || String(val).trim() === '') {
+      setClienteNombre('')
+      return
+    }
+    try {
+      if (clienteTipo === 'juridico') {
+        console.debug('handleRTNChange: buscando cliente juridico para RTN=', val)
+        const { data, error } = await supabase.from('clientes').select('id,nombre,telefono,correo_electronico,exonerado').eq('rtn', val).eq('tipo_cliente','juridico').maybeSingle()
+        console.debug('handleRTNChange: supabase response', { data, error })
+        if (!error && data && (data as any).nombre) {
+          setClienteNombre((data as any).nombre || '')
+          setClienteTelefono((data as any).telefono || '')
+          setClienteCorreo((data as any).correo_electronico || '')
+          setClienteExonerado(Boolean((data as any).exonerado))
+          setTimeout(() => { try { clienteNombreInputRef.current?.focus() } catch (e) {} }, 50)
+          return
+        } else {
+          setClienteNombre('')
+          setClienteTelefono('')
+          setClienteCorreo('')
+          setClienteExonerado(false)
+          return
+        }
+      }
+      const tableName = 'clientenatural'
+      console.debug('handleRTNChange: buscando clientenatural para RTN=', val)
+      const { data, error } = await supabase.from(tableName).select('nombre').eq('rtn', val).maybeSingle()
+      console.debug('handleRTNChange: supabase response clientenatural', { data, error })
+      if (!error && data && (data as any).nombre) {
+        setClienteNombre((data as any).nombre || '')
+        // mover foco al nombre para permitir edición si el usuario quiere
+        setTimeout(() => { try { clienteNombreInputRef.current?.focus() } catch (e) {} }, 50)
+      } else {
+        // no existe, limpiar nombre para nuevo registro
+        setClienteNombre('')
+      }
+    } catch (e) {
+      console.warn('Error buscando cliente por RTN:', e)
+    }
+  }
+
+  const openSelector = (mode: 'factura'|'cotizacion') => {
+    setPrintingMode(mode)
+    setFacturarModalOpen(true)
+  }
+
+  const buildProductosTabla = () => {
+    return carrito.map(i => {
+      const desc = `${i.producto.nombre || ''}`
+      const cant = Number(i.cantidad || 0)
+      const precio = Number(i.producto.precio || 0).toFixed(2)
+      const total = (cant * Number(i.producto.precio || 0)).toFixed(2)
+      return `<tr><td>${desc}</td><td style="text-align:center">${cant}</td><td style="text-align:right">L ${precio}</td><td style="text-align:right">L ${total}</td></tr>`
+    }).join('\n')
+  }
+
+  const generateFacturaHTML = (opts: { cliente?: string, rtn?: string, factura?: string, CAI?: string }, tipo: 'factura'|'cotizacion' = 'factura') => {
+    const cliente = opts.cliente || (tipo === 'factura' ? 'Consumidor Final' : 'Cotización Cliente')
+    const rtn = opts.rtn || (tipo === 'factura' ? 'C/F' : 'C/F')
+    const factura = opts.factura || String(Math.floor(Math.random() * 900000) + 100000)
+    const Ahora = new Date().toLocaleString()
+    const subtotal = subtotalCalc()
+    const impuesto = (taxableSubtotalCalc() * taxRate)
+    const ft = subtotal + impuesto
+    const tabla = buildProductosTabla()
+    const titulo = tipo === 'factura' ? 'FACTURA' : 'COTIZACIÓN'
+    const footerNote = tipo === 'factura' ? '' : '<div style="margin-top:12px;text-align:center;color:#475569">Válida por 24 horas desde la fecha de emisión.</div>'
+
+    const htmlOutput = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${titulo}</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#000;margin:20px}
+    .factura{max-width:800px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:center}
+    .header img{width:180px;height:auto}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border:1px solid #000;padding:6px;text-align:left}
+    th{background:#eee}
+    .right{text-align:right}
+    </style></head><body><div class="factura"><div class="header"><div>
+    <h2>Solutecc - Punto de Ventas</h2>
+    <div>RTN: 00000000000000</div>
+    </div><div><h3>${titulo}</h3><div>No: ${factura}</div><div>Fecha: ${Ahora}</div></div></div>
+    <hr/>
+    <div><strong>Cliente:</strong> ${cliente}</div>
+    <div><strong>RTN:</strong> ${rtn}</div>
+    <table><thead><tr><th>Descripción</th><th>Cant</th><th>Precio</th><th>Total</th></tr></thead><tbody>
+    ${tabla}
+    </tbody></table>
+    <div style="margin-top:8px;text-align:right"><div>SubTotal: L ${subtotal.toFixed(2)}</div><div>ISV (${(taxRate*100).toFixed(2)}%): L ${impuesto.toFixed(2)}</div><h3>Total: L ${ft.toFixed(2)}</h3></div>
+    ${footerNote}
+    <div style="margin-top:20px;text-align:center"><small>Gracias por su preferencia</small></div>
+    </div><script>window.onload=function(){window.print();setTimeout(()=>window.close(),800);}</script></body></html>`
+
+    return htmlOutput
+  }
+
+  const subtotalCalc = () => carrito.reduce((s, it) => s + (Number(it.producto.precio || 0) * it.cantidad), 0)
+  const taxableSubtotalCalc = () => carrito.reduce((s, it) => s + ((it.producto.exento ? 0 : (Number(it.producto.precio || 0) * it.cantidad))), 0)
+
+  const doFacturaClienteFinal = () => {
+    const html = generateFacturaHTML({ cliente: 'Consumidor Final', rtn: 'C/F' }, printingMode)
+    const w = window.open('', '_blank')
+    if (w) {
+      w.document.open()
+      w.document.write(html)
+      w.document.close()
+    } else {
+      const newWin = window.open('about:blank')
+      if (newWin) { newWin.document.open(); newWin.document.write(html); newWin.document.close() }
+    }
+    if (printingMode === 'factura') vaciarCarrito()
+    setFacturarModalOpen(false)
+  }
+
+  const doFacturaClienteNormal = () => {
+    setClienteTipo('normal')
+    setClienteNombre('')
+    setClienteRTN('')
+    setClienteNormalModalOpen(true)
+    setFacturarModalOpen(false)
+  }
+
+  const doFacturaClienteJuridico = () => {
+    setClienteTipo('juridico')
+    setClienteNombre('')
+    setClienteRTN('')
+    setClienteNormalModalOpen(true)
+    setFacturarModalOpen(false)
+  }
+
+    useEffect(() => {
+      if (clienteNormalModalOpen) {
+        setTimeout(() => {
+          try { clienteNombreRef.current?.focus() } catch (e) { }
+        }, 80)
+      }
+    }, [clienteNormalModalOpen])
+
+  const submitClienteNormal = async () => {
+    // guardar/actualizar cliente en la tabla `clientenatural`
+    try {
+      if (clienteRTN && clienteNombre) {
+        const payload = { rtn: clienteRTN, nombre: clienteNombre }
+        const { error } = await supabase.from('clientenatural').upsert(payload, { onConflict: 'rtn' })
+        if (error) console.warn('Error guardando clientenatural:', error)
+      }
+    } catch (e) {
+      console.warn('Error upsert clientenatural:', e)
+    }
+
+    // guardar/actualizar cliente en la tabla correspondiente según tipo
+    try {
+      if (clienteRTN && clienteNombre) {
+        if (clienteTipo === 'juridico') {
+          // buscar si existe cliente con ese RTN y tipo juridico
+          const { data: found, error: findErr } = await supabase.from('clientes').select('id').eq('rtn', clienteRTN).eq('tipo_cliente', 'juridico').maybeSingle()
+          if (findErr) console.warn('Error buscando cliente juridico:', findErr)
+          if (found && (found as any).id) {
+            // actualizar por id
+            const { error: updErr } = await supabase.from('clientes').update({ nombre: clienteNombre, telefono: clienteTelefono || null, correo_electronico: clienteCorreo || null, exonerado: clienteExonerado }).eq('id', (found as any).id)
+            if (updErr) console.warn('Error actualizando cliente juridico:', updErr)
+          } else {
+            // insertar nuevo cliente con tipo_cliente = 'juridico'
+            const { error: insErr } = await supabase.from('clientes').insert([{ nombre: clienteNombre, rtn: clienteRTN, telefono: clienteTelefono || null, correo_electronico: clienteCorreo || null, tipo_cliente: 'juridico', exonerado: clienteExonerado }])
+            if (insErr) console.warn('Error insertando cliente juridico:', insErr)
+          }
+        } else {
+          // natural: usar clientenatural table (como antes)
+          const payload = { rtn: clienteRTN, nombre: clienteNombre }
+          const { error } = await supabase.from('clientenatural').upsert(payload, { onConflict: 'rtn' })
+          if (error) console.warn('Error guardando clientenatural:', error)
+        }
+      }
+    } catch (e) {
+      console.warn('Error upsert cliente:', e)
+    }
+
+    const html = generateFacturaHTML({ cliente: clienteNombre || 'Cliente', rtn: clienteRTN || '' }, printingMode)
+    const w = window.open('', '_blank')
+    if (w) { w.document.open(); w.document.write(html); w.document.close() }
+    if (printingMode === 'factura') vaciarCarrito()
+    setClienteNormalModalOpen(false)
+  }
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,26 +333,40 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     let mounted = true
     ;(async () => {
       try {
-        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion')
+        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion, exento')
         if (invErr) throw invErr
         const invRows = Array.isArray(invData) ? invData : []
         const ids = invRows.map((r: any) => String(r.id))
 
-        // prices
+        if (ids.length === 0) {
+          if (mounted) setProductos([])
+          return
+        }
+
+        // prices: fetch all price rows and build a map, avoids type-mismatch on .in()
         const priceMap: Record<string, number> = {}
-        if (ids.length > 0) {
-          const { data: prices } = await supabase.from('precios').select('producto_id, precio, created_at').in('producto_id', ids).order('created_at', { ascending: false })
+        try {
+          const { data: prices, error: pricesErr } = await supabase.from('precios').select('producto_id, precio').order('id', { ascending: false })
+          if (pricesErr) throw pricesErr
+          console.debug('PV: precios total rows', Array.isArray(prices) ? prices.length : 0)
           if (Array.isArray(prices)) {
+            // build map but only keep first (latest) price per producto_id
             for (const p of prices) {
-              const pid = String(p.producto_id)
-              if (!priceMap[pid]) priceMap[pid] = Number(p.precio || 0)
+              const pid = String((p as any).producto_id)
+              if (!priceMap[pid]) priceMap[pid] = Number((p as any).precio || 0)
             }
           }
+        } catch (e) {
+          console.warn('Error cargando precios en PV:', e)
+        }
 
-          // stock from registro_de_inventario
-          const { data: regData } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
+        // stock from registro_de_inventario
+        let stockMap: Record<string, number> = {}
+        try {
+          const { data: regData, error: regErr } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
+          if (regErr) throw regErr
           const regRows = Array.isArray(regData) ? regData : []
-          const stockMap: Record<string, number> = {}
+          stockMap = {}
           ids.forEach(id => stockMap[id] = 0)
           for (const r of regRows) {
             const pid = String((r as any).producto_id)
@@ -156,23 +375,29 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             if (tipo === 'ENTRADA') stockMap[pid] = (stockMap[pid] || 0) + qty
             else if (tipo === 'SALIDA') stockMap[pid] = (stockMap[pid] || 0) - qty
           }
-
-          const products: Producto[] = invRows.map((r: any) => ({
-            id: String(r.id),
-            sku: r.sku,
-            nombre: r.nombre,
-            categoria: r.categoria,
-            imagen: r.imagen,
-            precio: priceMap[String(r.id)] ?? 0,
-            stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
-          }))
-
-          if (mounted) setProductos(products)
-        } else {
-          if (mounted) setProductos([])
+        } catch (e) {
+          console.warn('Error cargando registro_de_inventario en PV:', e)
+          // initialize zero stock map to avoid crashes
+          stockMap = {}
+          ids.forEach(id => stockMap[id] = 0)
         }
+
+        console.debug('PV: priceMap sample', Object.keys(priceMap).slice(0,5).map(k=>[k, priceMap[k]]))
+        const products: Producto[] = invRows.map((r: any) => ({
+          id: String(r.id),
+          sku: r.sku,
+          nombre: r.nombre,
+          categoria: r.categoria,
+          imagen: r.imagen,
+          precio: (priceMap[String(r.id)] !== undefined ? priceMap[String(r.id)] : (r.precio !== undefined ? Number(r.precio) : 0)),
+          exento: (r.exento === true || String(r.exento) === 'true' || Number(r.exento) === 1) || false,
+          stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
+        }))
+
+        if (mounted) setProductos(products)
       } catch (e) {
         console.warn('Error cargando productos desde inventario:', e)
+        if (mounted) setProductos([])
       }
     })()
     return () => { mounted = false }
@@ -193,6 +418,35 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       // ignore
     }
+  }, [])
+
+  // Load tax rate from DB (table `impuesto`, first row). Normalize to decimal (e.g. 15 -> 0.15)
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('impuesto')
+          .select('valor,porcentaje,tasa')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (error) throw error
+        if (!data) return
+        // prefer fields in order: valor, porcentaje, tasa
+        const rawVal = (data as any).valor ?? (data as any).porcentaje ?? (data as any).tasa
+        if (rawVal !== undefined && rawVal !== null) {
+          let num = Number(rawVal)
+          if (!Number.isNaN(num)) {
+            if (num > 1) num = num / 100 // convert percent like 15 -> 0.15
+            if (mounted) setTaxRate(num)
+          }
+        }
+      } catch (e) {
+        console.warn('Error cargando impuesto en PV:', e)
+      }
+    })()
+    return () => { mounted = false }
   }, [])
 
   const openUbicacion = (sku: string) => {
@@ -431,7 +685,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   <span>L{subtotal.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 500 }}>
-                  <span>ISV (15%):</span>
+                  <span>ISV ({(taxRate*100).toFixed(2)}%):</span>
                   <span>L{iva.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 700, marginTop: 8, color: '#1e293b' }}>
@@ -441,8 +695,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
                 {/* BOTONES DE ACCIÓN */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 16 }}>
-                  <button onClick={() => generarTicket('cotizacion')} className="btn-opaque">Cotización</button>
-                  <button onClick={() => generarTicket('factura')} className="btn-opaque">Facturar</button>
+                  <button onClick={() => openSelector('cotizacion')} className="btn-opaque">Cotización</button>
+                  <button onClick={() => openSelector('factura')} className="btn-opaque">Facturar</button>
                 </div>
               </div>
             )}
@@ -518,6 +772,154 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 <p>No se encontró información de ubicación para este artículo.</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de selección para facturar */}
+      {facturarModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ width: 640, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)', display: 'flex', gap: 16, alignItems: 'stretch' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>Seleccionar tipo de cliente</h3>
+                <button onClick={() => setFacturarModalOpen(false)} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
+              </div>
+
+              <p style={{ color: '#475569', marginTop: 6 }}>Elige si la factura será para Cliente Final o para un Cliente registrado. Cliente Final genera una factura inmediata lista para imprimir. Cliente Normal permite ingresar datos del cliente.</p>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <div onClick={doFacturaClienteFinal} role="button" tabIndex={0} style={{ flex: 1, borderRadius: 10, padding: 14, cursor: 'pointer', boxShadow: '0 6px 18px rgba(2,6,23,0.08)', border: '1px solid #e6edf3', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 28 }}>👤</div>
+                  <div style={{ fontWeight: 700 }}>Cliente Final</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Factura para consumidor final. No requiere RTN.</div>
+                  <div style={{ marginTop: 8, color: '#0f172a', fontWeight: 700 }}>&nbsp;</div>
+                </div>
+                <div onClick={doFacturaClienteNormal} role="button" tabIndex={0} style={{ flex: 1, borderRadius: 10, padding: 14, cursor: 'pointer', boxShadow: '0 6px 18px rgba(2,6,23,0.08)', border: '1px solid #e6edf3', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 28 }}>🏷️</div>
+                  <div style={{ fontWeight: 700 }}>Cliente Normal</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Ingresar nombre y número de identificación (RTN) para la factura.</div>
+                  <div style={{ marginTop: 8, color: '#0f172a', fontWeight: 700 }}>&nbsp;</div>
+                </div>
+
+                <div onClick={doFacturaClienteJuridico} role="button" tabIndex={0} style={{ flex: 1, borderRadius: 10, padding: 14, cursor: 'pointer', boxShadow: '0 6px 18px rgba(2,6,23,0.08)', border: '1px solid #e6edf3', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 28 }}>🏢</div>
+                  <div style={{ fontWeight: 700 }}>Cliente Jurídico</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>Ingresar razón social y número de identificación (RTN) para la factura.</div>
+                  <div style={{ marginTop: 8, color: '#0f172a', fontWeight: 700 }}>&nbsp;</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ width: 220, borderLeft: '1px dashed #e6edf3', paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontWeight: 700 }}>Resumen</div>
+              <div style={{ color: '#475569' }}>Items: <strong>{carrito.length}</strong></div>
+              <div style={{ color: '#475569' }}>SubTotal: <strong>L {subtotalCalc().toFixed(2)}</strong></div>
+              <div style={{ color: '#475569' }}>ISV ({(taxRate*100).toFixed(2)}%): <strong>L {(taxableSubtotalCalc()*taxRate).toFixed(2)}</strong></div>
+              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800 }}>Total: L {(subtotalCalc() + (taxableSubtotalCalc()*taxRate)).toFixed(2)}</div>
+              <div style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>Seleccione una opción para continuar.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para capturar cliente normal */}
+      {clienteNormalModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ width: 600, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h3 style={{ margin: 0 }}>{clienteTipo === 'juridico' ? 'Datos del Cliente (Jurídico)' : 'Datos del Cliente'}</h3>
+                <button onClick={() => setClienteNormalModalOpen(false)} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
+              </div>
+
+            <p style={{ color: '#475569', marginTop: 6 }}>{clienteTipo === 'juridico' ? 'Ingrese número de identificación (RTN) y razón social del cliente jurídico. Estos datos se incluirán en la factura.' : 'Ingrese número de identificación (RTN) y nombre completo del cliente. Estos datos se incluirán en la factura.'}</p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>RTN o Identificación</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input ref={clienteNombreRef} value={clienteRTN} onChange={e => { handleRTNChange(e.target.value) }} placeholder="00000000000000" style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                  <button onClick={() => setClienteSearchOpen(true)} className="btn-opaque" style={{ padding: '8px 10px' }}>Buscar</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>{clienteTipo === 'juridico' ? 'Razón social' : 'Nombre completo'}</label>
+                <input ref={clienteNombreInputRef} value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} placeholder={clienteTipo === 'juridico' ? 'Razón social de la empresa' : 'Nombre del cliente'} style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+                    <ClienteSearchModal open={clienteSearchOpen} onClose={() => setClienteSearchOpen(false)} onSelect={(c: any) => {
+                      // llenar campos con cliente seleccionado
+                      setClienteRTN(c.rtn || '')
+                      setClienteNombre(c.nombre || '')
+                      setClienteTelefono(c.telefono || '')
+                      setClienteCorreo(c.correo_electronico || '')
+                      setClienteExonerado(Boolean(c.exonerado))
+                      setClienteTipo('juridico')
+                    }} />
+              <button onClick={() => setClienteNormalModalOpen(false)} className="btn-opaque" style={{ background: 'transparent', color: '#111' }}>Cancelar</button>
+              <button onClick={() => setCreateClienteModalOpen(true)} className="btn-opaque" style={{ background: 'transparent', color: '#0b5cff' }}>Crear cliente</button>
+              <button onClick={submitClienteNormal} className="btn-opaque" disabled={!clienteNombre || !clienteRTN} style={{ opacity: (!clienteNombre || !clienteRTN) ? 0.6 : 1 }}>Generar Factura</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear cliente (juridico) */}
+      {createClienteModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ width: 680, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Crear Cliente Jurídico</h3>
+              <button onClick={() => setCreateClienteModalOpen(false)} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
+            </div>
+
+            <p style={{ color: '#475569', marginTop: 6 }}>Complete los datos del cliente jurídico. El campo tipo se fijará a <strong>juridico</strong>.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>RTN</label>
+                <input value={clienteRTN} onChange={e => setClienteRTN(e.target.value)} placeholder="00000000000000" style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>Razón social</label>
+                <input value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} placeholder="Razón social" style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>Teléfono</label>
+                <input value={clienteTelefono} onChange={e => setClienteTelefono(e.target.value)} placeholder="Teléfono" style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>Correo electrónico</label>
+                <input value={clienteCorreo} onChange={e => setClienteCorreo(e.target.value)} placeholder="correo@ejemplo.com" style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input id="exon" type="checkbox" checked={clienteExonerado} onChange={e => setClienteExonerado(e.target.checked)} />
+                <label htmlFor="exon">Exonerado</label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+              <button onClick={() => setCreateClienteModalOpen(false)} className="btn-opaque" style={{ background: 'transparent', color: '#111' }}>Cancelar</button>
+              <button onClick={async () => {
+                try {
+                  if (!clienteNombre || !clienteRTN) return
+                  const { data: existing, error: findErr } = await supabase.from('clientes').select('id').eq('rtn', clienteRTN).maybeSingle()
+                  if (findErr) console.warn('Error buscando cliente al crear:', findErr)
+                  if (existing && (existing as any).id) {
+                    const { error: updErr } = await supabase.from('clientes').update({ nombre: clienteNombre, telefono: clienteTelefono || null, correo_electronica: clienteCorreo || null, tipo_cliente: 'juridico', exonerado: clienteExonerado }).eq('id', (existing as any).id)
+                    if (updErr) console.warn('Error actualizando cliente al crear:', updErr)
+                  } else {
+                    const { error: insErr } = await supabase.from('clientes').insert([{ nombre: clienteNombre, rtn: clienteRTN, telefono: clienteTelefono || null, correo_electronica: clienteCorreo || null, tipo_cliente: 'juridico', exonerado: clienteExonerado }])
+                    if (insErr) console.warn('Error insertando cliente al crear:', insErr)
+                  }
+                } catch (e) {
+                  console.warn('Error creando cliente juridico:', e)
+                }
+                setCreateClienteModalOpen(false)
+              }} className="btn-opaque" style={{ opacity: (!clienteNombre || !clienteRTN) ? 0.6 : 1 }} disabled={!clienteNombre || !clienteRTN}>Crear cliente</button>
+            </div>
           </div>
         </div>
       )}
