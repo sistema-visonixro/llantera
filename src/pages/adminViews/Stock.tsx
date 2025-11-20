@@ -34,42 +34,36 @@ export default function Stock() {
       const inv: InventarioRow[] = Array.isArray(data) ? data as InventarioRow[] : []
       setRows(inv)
 
-      // compute stock: sum(compras_detalle.cantidad) - sum(ventas_detalle.cantidad)
+      // compute stock from registro_de_inventario: sum(ENTRADA) - sum(SALIDA)
       const ids = inv.map(r => r.id)
       if (ids.length === 0) {
         setStockMap({})
         return
       }
 
-      // get compras_detalle sums for these product ids
-      const { data: compraData, error: compraErr } = await supabase.from('compras_detalle').select('producto_id, cantidad').in('producto_id', ids)
-      if (compraErr) throw compraErr
-      const compraRows = Array.isArray(compraData) ? compraData : []
-      const comprasMap: Record<string, number> = {}
-      for (const r of compraRows) {
-        const pid = String((r as any).producto_id)
-        const qty = Number((r as any).cantidad) || 0
-        comprasMap[pid] = (comprasMap[pid] || 0) + qty
-      }
-
-      // get ventas_detalle sums
-      const { data: ventaData, error: ventaErr } = await supabase.from('ventas_detalle').select('producto_id, cantidad').in('producto_id', ids)
-      if (ventaErr) throw ventaErr
-      const ventaRows = Array.isArray(ventaData) ? ventaData : []
-      const ventasMap: Record<string, number> = {}
-      for (const r of ventaRows) {
-        const pid = String((r as any).producto_id)
-        const qty = Number((r as any).cantidad) || 0
-        ventasMap[pid] = (ventasMap[pid] || 0) + qty
-      }
+      // fetch registro_de_inventario rows for these products
+      const { data: regData, error: regErr } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
+      if (regErr) throw regErr
+      const regRows = Array.isArray(regData) ? regData : []
 
       const map: Record<string, number> = {}
-      for (const r of inv) {
-        const pid = String(r.id)
-        const c = comprasMap[pid] || 0
-        const v = ventasMap[pid] || 0
-        map[pid] = Number((c - v).toFixed(2))
+      // initialize map
+      for (const r of inv) map[String(r.id)] = 0
+
+      for (const r of regRows) {
+        const pid = String((r as any).producto_id)
+        const qty = Number((r as any).cantidad) || 0
+        const tipo = String((r as any).tipo_de_movimiento || '').toUpperCase()
+        if (!map.hasOwnProperty(pid)) map[pid] = 0
+        if (tipo === 'ENTRADA') map[pid] = (map[pid] || 0) + qty
+        else if (tipo === 'SALIDA') map[pid] = (map[pid] || 0) - qty
+        else {
+          // Unknown movement type: ignore or treat as 0
+        }
       }
+
+      // ensure two decimals
+      for (const k of Object.keys(map)) map[k] = Number((map[k] || 0).toFixed(2))
       setStockMap(map)
 
       // Resolve image URLs for rows

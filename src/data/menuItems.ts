@@ -26,7 +26,7 @@ export const menuItems: any[] = [
       { id: 'precios_productos', label: 'Precios de productos' },
       { id: 'precios_historico', label: 'Histórico de precios' },
       { id: 'stock', label: 'Stock' },
-      { id: 'inventario_salidas', label: 'Entradas/Salidas (salidas_inventario)' },
+      { id: 'inventario_salidas', label: 'Movimiento de Inventario' },
       { id: 'inventario_categorias', label: 'Categorías / Marcas (opcional)' }
     ]
   },
@@ -36,7 +36,8 @@ export const menuItems: any[] = [
     children: [
       { id: 'compras_main', label: 'Compras (compras)' },
       { id: 'compras_detalle', label: 'Detalle de compras (compras_detalle)' },
-      { id: 'proveedores', label: 'Proveedores (proveedores)' }
+      { id: 'proveedores', label: 'Proveedores (proveedores)' },
+      { id: 'devoluciones_proveedores', label: 'Devolución a Proveedores' }
     ]
   },
   {

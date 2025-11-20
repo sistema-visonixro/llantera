@@ -5,33 +5,22 @@ import CotizacionesGuardadas from './CotizacionesGuardadas'
 import PedidosEnLinea from './PedidosEnLinea'
 import CorteCajaParcial from './CorteCajaParcial'
 import CorteCajaTotal from './CorteCajaTotal'
+import supabase from '../lib/supabaseClient'
 
 type Producto = {
-  id: number;
-  sku: string;
-  nombre: string;
-  precio: number;
-  categoria: string;
-  stock: number;
+  id: string;
+  sku?: string;
+  nombre?: string;
+  precio?: number;
+  categoria?: string;
+  stock?: number;
+  imagen?: string;
 };
 
 type ItemCarrito = {
   producto: Producto;
   cantidad: number;
 };
-
-const productosIniciales: Producto[] = [
-  { id: 1, sku: 'REF-001', nombre: 'Gas Refrigerante R134a 13.6kg', precio: 1250, categoria: 'Refrigeración', stock: 10 },
-  { id: 2, sku: 'REF-002', nombre: 'Gas Refrigerante R410a 11.3kg', precio: 1650, categoria: 'Refrigeración', stock: 8 },
-  { id: 3, sku: 'ACC-101', nombre: 'Manifold para Refrigeración con Mangueras', precio: 950, categoria: 'Herramientas', stock: 5 },
-  { id: 4, sku: 'ELE-205', nombre: 'Capacitor de Marcha 45 µF 440V', precio: 120, categoria: 'Eléctrico', stock: 25 },
-  { id: 5, sku: 'ELE-206', nombre: 'Capacitor de Arranque 150 µF 250V', precio: 140, categoria: 'Eléctrico', stock: 20 },
-  { id: 6, sku: 'AC-310', nombre: 'Termostato Universal para Refrigeradores', precio: 95, categoria: 'Refrigeración', stock: 30 },
-  { id: 7, sku: 'AC-311', nombre: 'Ventilador Motor 1/20 HP para Refrigerador', precio: 180, categoria: 'Refacciones', stock: 12 },
-  { id: 8, sku: 'COO-410', nombre: 'Piedra para Estufa (Quemador Universal)', precio: 55, categoria: 'Estufas', stock: 40 },
-  { id: 9, sku: 'COO-411', nombre: 'Encendedor Piezoeléctrico para Estufa', precio: 75, categoria: 'Estufas', stock: 18 },
-  { id: 10, sku: 'REF-003', nombre: 'Filtro Deshidratador para Refrigeración', precio: 65, categoria: 'Refrigeración', stock: 50 },
-];
 
 
 export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
@@ -40,25 +29,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev || ''; };
   }, []);
-  const [productos] = useState<Producto[]>(productosIniciales);
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('Todas');
 
-  const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))];
+  const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))]
 
   const productosFiltrados = productos.filter(p =>
-    (p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-     p.sku.toLowerCase().includes(busqueda.toLowerCase())) &&
+    ((String(p.nombre || '').toLowerCase().includes(busqueda.toLowerCase())) ||
+     (String(p.sku || '').toLowerCase().includes(busqueda.toLowerCase()))) &&
     (categoriaFiltro === 'Todas' || p.categoria === categoriaFiltro)
   );
 
-  const subtotal = carrito.reduce((sum, item) => sum + item.producto.precio * item.cantidad, 0);
+  const subtotal = carrito.reduce((sum, item) => sum + (Number(item.producto.precio || 0) * item.cantidad), 0);
   const iva = subtotal * 0.15;
   const total = subtotal + iva;
 
   const agregarAlCarrito = (producto: Producto) => {
-    if (producto.stock <= 0) return;
+    if ((producto.stock ?? 0) <= 0) return;
     setCarrito(prev => {
       const existente = prev.find(i => i.producto.id === producto.id);
       if (existente) {
@@ -72,10 +61,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     });
   };
 
-  const actualizarCantidad = (id: number, cambio: number) => {
+  const actualizarCantidad = (id: any, cambio: number) => {
     setCarrito(prev =>
       prev.map(item => {
-        if (item.producto.id === id) {
+        if (String(item.producto.id) === String(id)) {
           const nuevaCant = item.cantidad + cambio;
           return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : item;
         }
@@ -84,24 +73,24 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     );
   };
 
-  const eliminarDelCarrito = (id: number) => {
-    setCarrito(prev => prev.filter(i => i.producto.id !== id));
+  const eliminarDelCarrito = (id: any) => {
+    setCarrito(prev => prev.filter(i => String(i.producto.id) !== String(id)));
   };
 
   const vaciarCarrito = () => setCarrito([]);
 
   const generarTicket = (tipo: 'cotizacion' | 'factura') => {
     const ticket = `
-${tipo === 'factura' ? '=== FACTURA ===' : '=== COTIZACIÓN ==='}
-SET - Punto de Ventas
-Fecha: ${new Date().toLocaleString('es-HN')}
-----------------------------------------
-${carrito.map(i => `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(i.producto.precio * i.cantidad).toFixed(2)}`).join('\n')}
-----------------------------------------
-Subtotal: L${subtotal.toFixed(2)}
-ISV (15%): L${iva.toFixed(2)}
-TOTAL: L${total.toFixed(2)}
-${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
+  ${tipo === 'factura' ? '=== FACTURA ===' : '=== COTIZACIÓN ==='}
+  SET - Punto de Ventas
+  Fecha: ${new Date().toLocaleString('es-HN')}
+  ----------------------------------------
+  ${carrito.map(i => `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(Number(i.producto.precio || 0) * i.cantidad).toFixed(2)}`).join('\n')}
+  ----------------------------------------
+  Subtotal: L${subtotal.toFixed(2)}
+  ISV (15%): L${iva.toFixed(2)}
+  TOTAL: L${total.toFixed(2)}
+  ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
     `.trim();
     alert(ticket);
     if (tipo === 'factura') vaciarCarrito();
@@ -134,13 +123,149 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
       })
   }, [])
 
+  // Load products from DB: inventario + precios + registro_de_inventario
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion')
+        if (invErr) throw invErr
+        const invRows = Array.isArray(invData) ? invData : []
+        const ids = invRows.map((r: any) => String(r.id))
+
+        // prices
+        const priceMap: Record<string, number> = {}
+        if (ids.length > 0) {
+          const { data: prices } = await supabase.from('precios').select('producto_id, precio, created_at').in('producto_id', ids).order('created_at', { ascending: false })
+          if (Array.isArray(prices)) {
+            for (const p of prices) {
+              const pid = String(p.producto_id)
+              if (!priceMap[pid]) priceMap[pid] = Number(p.precio || 0)
+            }
+          }
+
+          // stock from registro_de_inventario
+          const { data: regData } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
+          const regRows = Array.isArray(regData) ? regData : []
+          const stockMap: Record<string, number> = {}
+          ids.forEach(id => stockMap[id] = 0)
+          for (const r of regRows) {
+            const pid = String((r as any).producto_id)
+            const qty = Number((r as any).cantidad) || 0
+            const tipo = String((r as any).tipo_de_movimiento || '').toUpperCase()
+            if (tipo === 'ENTRADA') stockMap[pid] = (stockMap[pid] || 0) + qty
+            else if (tipo === 'SALIDA') stockMap[pid] = (stockMap[pid] || 0) - qty
+          }
+
+          const products: Producto[] = invRows.map((r: any) => ({
+            id: String(r.id),
+            sku: r.sku,
+            nombre: r.nombre,
+            categoria: r.categoria,
+            imagen: r.imagen,
+            precio: priceMap[String(r.id)] ?? 0,
+            stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
+          }))
+
+          if (mounted) setProductos(products)
+        } else {
+          if (mounted) setProductos([])
+        }
+      } catch (e) {
+        console.warn('Error cargando productos desde inventario:', e)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  const [userName, setUserName] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user')
+      if (raw) {
+        const u = JSON.parse(raw)
+        setUserName(u.username || u.name || null)
+        setUserRole(u.role || null)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [])
+
   const openUbicacion = (sku: string) => {
     console.log('openUbicacion', sku, 'entradasCount', entradas.length)
-    const ent = entradas.find(e => e.sku === sku) || null;
-    console.log('entrada encontrada', ent)
-    setSelectedEntrada(ent);
+    // Try to find product in loaded products (from inventario)
+    let ent: any = null
+    try {
+      ent = productos.find(p => String(p.sku || '') === String(sku) || String(p.id) === String(sku)) || null
+    } catch (e) {
+      ent = null
+    }
+
+    // If we found product info, build a normalized object for modal
+      if (ent) {
+      const cantidad = Number((ent.stock ?? 0))
+      const sel = {
+        id: ent.id,
+        producto: ent.nombre || '',
+        sku: ent.sku || '',
+        imagen: ent.imagen || null,
+        descripcion: (ent as any).descripcion || '',
+        ubicacion: (ent as any).ubicacion || null,
+        cantidad
+      }
+      setSelectedEntrada(sel)
+      setModalOpen(true)
+      return
+    }
+
+    // Fallback: try to find in entradas JSON
+    const ent2 = entradas.find(e => e.sku === sku) || null;
+    console.log('entrada encontrada', ent2)
+    setSelectedEntrada(ent2);
     setModalOpen(true);
   }
+
+  // Resolve image URLs for products using storage public URL or signed URL
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || 'inventario'
+        const urlMap: Record<string, string | null> = {}
+        await Promise.all((productos || []).map(async (p) => {
+          const raw = (p as any).imagen
+          if (!raw) { urlMap[String(p.id)] = null; return }
+          const src = String(raw)
+          if (src.startsWith('http')) { urlMap[String(p.id)] = src; return }
+          let objectPath = src
+          const m = String(src).match(/\/storage\/v1\/object\/public\/([^/]+)\/(.*)/)
+          if (m) objectPath = decodeURIComponent(m[2])
+          try {
+            const publicRes = await supabase.storage.from(BUCKET).getPublicUrl(objectPath)
+            const candidate = (publicRes as any)?.data?.publicUrl || (publicRes as any)?.data?.publicURL || null
+            if (candidate) { urlMap[String(p.id)] = candidate; return }
+          } catch (e) {
+            // continue
+          }
+          try {
+            const signed = await supabase.storage.from(BUCKET).createSignedUrl(objectPath, 60 * 60 * 24 * 7)
+            const signedUrl = (signed as any)?.data?.signedUrl ?? null
+            urlMap[String(p.id)] = signedUrl
+          } catch (e) {
+            urlMap[String(p.id)] = null
+          }
+        }))
+        if (mounted) setImageUrls(urlMap)
+      } catch (e) {
+        console.warn('Error resolviendo imágenes en PV', e)
+      }
+    })()
+    return () => { mounted = false }
+  }, [productos])
   if (view) {
     if (view === 'DevolucionCaja') return <DevolucionCaja onBack={() => setView(null)} />
     if (view === 'IngresoEfectivo') return <IngresoEfectivo onBack={() => setView(null)} />
@@ -155,9 +280,14 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
       {/* Header */}
       <header style={{
         background: '#1e293b', color: 'white', padding: '14px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', position: 'relative'
       }}>
         <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600 }}>Solutecc  -  Caja</h1>
+        {/* Center: show logged user role and name */}
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+          <div style={{ fontSize: '0.95rem', color: '#e2e8f0', fontWeight: 500 }}>{userName ? `${userName}` : ''}</div>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{userRole ? `${userRole}` : ''}</div>
+        </div>
         <div style={{ position: 'relative' }} ref={menuRef}>
           <button
             onClick={() => setMenuOpen(v => !v)}
@@ -220,6 +350,7 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
                 <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
                     <th style={thStyle}></th>
+                    <th style={thStyle}>Imagen</th>
                     <th style={thStyle}>SKU</th>
                     <th style={thStyle}>Nombre</th>
                     <th style={thStyle}>Categoría</th>
@@ -239,30 +370,34 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
                     productosFiltrados.map(prod => (
                       <tr key={prod.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={tdStyle}>
-                          <button type="button" onClick={() => openUbicacion(prod.sku)} title="Ver ubicación" className="btn-opaque" style={{ padding: 6, borderRadius: 6 }}>
-                            🔍
-                          </button>
-                        </td>
-                        <td style={tdStyle}><code style={skuStyle}>{prod.sku}</code></td>
+                            <button type="button" onClick={() => openUbicacion(prod.sku || '')} title="Ver ubicación" className="btn-opaque" style={{ padding: 6, borderRadius: 6 }}>
+                              🔍
+                            </button>
+                          </td>
+                          <td style={tdStyle}>
+                            {imageUrls[String(prod.id)] ? (
+                              <img src={encodeURI(imageUrls[String(prod.id)] as string)} alt={String(prod.nombre || '')} style={{ width: 32, height: 32, objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '' }} />
+                            ) : (prod.imagen ? <img src={String(prod.imagen)} alt={String(prod.nombre || '')} style={{ width: 32, height: 32, objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '' }} /> : '')}
+                          </td>
+                          <td style={tdStyle}><code style={skuStyle}>{prod.sku}</code></td>
                         <td style={tdStyle}><strong>{prod.nombre}</strong></td>
                         <td style={tdStyle}><span style={{ color: '#64748b' }}>{prod.categoria}</span></td>
-                        <td style={tdStyle}>L{prod.precio.toFixed(2)}</td>
+                        <td style={tdStyle}>L{(Number(prod.precio || 0)).toFixed(2)}</td>
                         <td style={tdStyle}>
-                          <span style={{
-                            color: prod.stock > 10 ? '#16a34a' : prod.stock > 0 ? '#d97706' : '#dc2626',
-                            fontWeight: 600
-                          }}>
-                            {prod.stock}
-                          </span>
+                          {(() => {
+                            const stockNum = Number(prod.stock || 0)
+                            const color = stockNum > 10 ? '#16a34a' : stockNum > 0 ? '#d97706' : '#dc2626'
+                            return <span style={{ color, fontWeight: 600 }}>{stockNum}</span>
+                          })()}
                         </td>
                         <td style={tdStyle}>
                           <button
                             onClick={() => agregarAlCarrito(prod)}
-                            disabled={prod.stock === 0}
+                            disabled={Number(prod.stock || 0) === 0}
                             className="btn-opaque"
                             style={{ padding: '6px 14px', borderRadius: 6, fontSize: '0.8rem' }}
                           >
-                            {prod.stock > 0 ? 'Agregar' : 'Agotado'}
+                            {Number(prod.stock || 0) > 0 ? 'Agregar' : 'Agotado'}
                           </button>
                         </td>
                       </tr>
@@ -329,7 +464,7 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
                         [{item.producto.sku}] {item.producto.nombre}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        L{item.producto.precio} c/u
+                        L{(Number(item.producto.precio || 0)).toFixed(2)} c/u
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -358,7 +493,14 @@ ${tipo === 'factura' ? '\n¡Gracias por su compra!' : '\nVálida por 24 horas'}
             {selectedEntrada ? (
               <div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <img src={selectedEntrada.imagen} alt={selectedEntrada.producto} style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                  {(() => {
+                    const imgSrc = selectedEntrada.id ? (imageUrls[String(selectedEntrada.id)] ?? selectedEntrada.imagen) : selectedEntrada.imagen
+                    return imgSrc ? (
+                      <img src={encodeURI(String(imgSrc))} alt={selectedEntrada.producto} style={{ width: 320, height: 200, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} onError={(e) => { (e.currentTarget as HTMLImageElement).src = '' }} />
+                    ) : (
+                      <div style={{ width: 320, height: 200, background: '#f1f5f9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Sin imagen</div>
+                    )
+                  })()}
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: '6px 0' }}><strong>SKU:</strong> {selectedEntrada.sku}</p>
                     <p style={{ margin: '6px 0' }}><strong>Descripción:</strong> {selectedEntrada.descripcion}</p>

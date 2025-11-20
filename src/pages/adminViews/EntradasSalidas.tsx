@@ -17,6 +17,8 @@ export default function EntradasSalidas() {
   const [sku, setSku] = useState('')
   const [marca, setMarca] = useState('')
   const [categoria, setCategoria] = useState('')
+  const [marcasOptions, setMarcasOptions] = useState<string[]>([])
+  const [categoriasOptions, setCategoriasOptions] = useState<string[]>([])
   const [last24h, setLast24h] = useState(false)
 
   const [registros, setRegistros] = useState<Registro[]>([])
@@ -86,7 +88,28 @@ export default function EntradasSalidas() {
     }
   }
 
-  useEffect(() => { loadRegistros() }, [])
+  async function loadFiltersOptions() {
+    try {
+      // Load marcas and categorias from inventario, deduplicate client-side
+      const { data: invData, error: invErr } = await supabase.from('inventario').select('marca, categoria')
+      if (invErr) throw invErr
+      const marcasSet = new Set<string>()
+      const categoriasSet = new Set<string>()
+      if (Array.isArray(invData)) {
+        invData.forEach((r: any) => {
+          if (r.marca) marcasSet.add(String(r.marca))
+          if (r.categoria) categoriasSet.add(String(r.categoria))
+        })
+      }
+      setMarcasOptions(Array.from(marcasSet).sort())
+      setCategoriasOptions(Array.from(categoriasSet).sort())
+    } catch (err) {
+      // ignore filter load errors silently
+      console.warn('Error loading filter options', err)
+    }
+  }
+
+  useEffect(() => { loadRegistros(); loadFiltersOptions() }, [])
 
   // Split into entradas and salidas
   const entradas = registros.filter(r => String(r.tipo_de_movimiento).toUpperCase() === 'ENTRADA')
@@ -94,12 +117,18 @@ export default function EntradasSalidas() {
 
   return (
     <div style={{ padding: 18 }}>
-      <h2 style={{ marginTop: 0 }}>Entradas/Salidas (registro_de_inventario)</h2>
+      <h2 style={{ marginTop: 0 }}>Movimiento de Inventario</h2>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
         <input className="input" placeholder="SKU" value={sku} onChange={e => setSku(e.target.value)} />
-        <input className="input" placeholder="Marca" value={marca} onChange={e => setMarca(e.target.value)} />
-        <input className="input" placeholder="Categoría" value={categoria} onChange={e => setCategoria(e.target.value)} />
+        <select className="input" value={marca} onChange={e => setMarca(e.target.value)}>
+          <option value="">-- Marca (todas) --</option>
+          {marcasOptions.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select className="input" value={categoria} onChange={e => setCategoria(e.target.value)}>
+          <option value="">-- Categoría (todas) --</option>
+          {categoriasOptions.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input type="checkbox" checked={last24h} onChange={e => setLast24h(e.target.checked)} /> Últimas 24h
         </label>

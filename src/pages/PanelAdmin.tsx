@@ -31,6 +31,7 @@ import Auditoria from './adminViews/Auditoria';
 import CAIView from './adminViews/CAI';
 import Proveedores from './adminViews/Proveedores';
 import ComprasMain from './adminViews/ComprasMain';
+import DevolucionesProveedores from './adminViews/DevolucionesProveedores';
 
 
 // Mapeo de IDs de menú a componentes para renderizado dinámico
@@ -58,6 +59,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   rep_ingresos_egresos: RepIngresosEgresos,
   rep_compras: RepCompras,
   compras_main: ComprasMain,
+  devoluciones_proveedores: DevolucionesProveedores,
   rep_export: RepExport,
   cuentas_contables: CuentasContables,
   libro_diario: LibroDiario,
