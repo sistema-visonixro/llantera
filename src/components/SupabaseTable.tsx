@@ -11,6 +11,8 @@ type Props = {
   limit?: number;
   columns?: string[]; // optional explicit column order/names to show
   searchColumns?: string[]; // columns to search on
+  order?: string | string[]; // optional order, e.g. 'id' or ['id','categoria']
+  filters?: Record<string, any>;
   allowAdd?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;
@@ -24,6 +26,8 @@ export default function SupabaseTable({
   limit = 500,
   columns,
   searchColumns,
+  order,
+  filters,
   allowAdd = false,
   allowEdit = false,
   allowDelete = false,
@@ -49,7 +53,27 @@ export default function SupabaseTable({
     try {
       const sup = (await import("../lib/supabaseClient")).default;
       const sel = select || "*";
-      const res = await sup.from(table).select(sel).limit(limit);
+      // build query with optional ordering
+      let query: any = sup.from(table).select(sel).limit(limit);
+      if (order) {
+        const orders: string[] = Array.isArray(order) ? order : String(order).split(",").map((s: string) => s.trim()).filter(Boolean);
+        orders.forEach((o: string) => {
+          // allow optional direction like 'col desc' or 'col asc'
+          const parts = o.split(" ").map((p: string) => p.trim()).filter(Boolean);
+          const col = parts[0];
+          const dir = parts[1] ? parts[1].toLowerCase() : "asc";
+          query = query.order(col, { ascending: dir !== "desc" });
+        });
+      }
+      // apply simple equality filters if provided
+      if (filters) {
+        Object.entries(filters).forEach(([k, v]) => {
+          if (v == null || v === "") return;
+          // use exact match for now
+          query = query.eq(k, v);
+        });
+      }
+      const res = await query;
       console.debug("SupabaseTable fetch result for", table, res);
       if (!mountedRef.current) return;
       if (res.error) throw res.error;
@@ -353,9 +377,14 @@ export default function SupabaseTable({
 function formatCell(v: any) {
   if (v == null) return "-";
   if (typeof v === "object") return JSON.stringify(v);
+  // Normalize boolean-like values to 'Sí' / 'No'
+  if (typeof v === "boolean") return v ? "Sí" : "No";
+  if (typeof v === "number" && (v === 0 || v === 1)) return v === 1 ? "Sí" : "No";
   // Render small image thumbnails for image URLs
   if (typeof v === "string") {
-    const lower = v.toLowerCase();
+    const lower = v.toLowerCase().trim();
+    if (lower === "1" || lower === "true" || lower === "t" || lower === "si" || lower === "s" || lower === "yes") return "Sí";
+    if (lower === "0" || lower === "false" || lower === "f" || lower === "no" || lower === "n" || lower === "not") return "No";
     if (
       (v.startsWith("http") || v.startsWith("/")) &&
       (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".svg") || lower.includes("/storage/"))

@@ -69,3 +69,10 @@ button:focus-visible {
   body { background-color: #121212; color: rgba(255,255,255,0.9) }
   button { background-color: #1a1a1a }
 }
+
+/* Print helper: when `print-table-only` is on body, hide everything except the table */
+@media print {
+  body.print-table-only * { visibility: hidden; }
+  body.print-table-only table, body.print-table-only table * { visibility: visible; }
+  body.print-table-only table { position: absolute; left: 0; top: 0; width: 100%; }
+}

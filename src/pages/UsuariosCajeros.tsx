@@ -8,15 +8,17 @@ export default function UsuariosCajeros() {
   const [search, setSearch] = useState('')
   const [createUsername, setCreateUsername] = useState('')
   const [createPassword, setCreatePassword] = useState('')
+  const [createName, setCreateName] = useState('')
   const [editId, setEditId] = useState<number | null>(null)
   const [editUsername, setEditUsername] = useState('')
   const [editPassword, setEditPassword] = useState('')
+  const [editName, setEditName] = useState('')
 
   async function loadUsers() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error } = await supabase.from('users').select('id, username, role').limit(1000)
+      const { data, error } = await supabase.from('users').select('id, username, role, nombre_usuario').limit(1000)
       if (error) throw error
       setUsers(Array.isArray(data) ? data : [])
     } catch (err: any) {
@@ -33,11 +35,13 @@ export default function UsuariosCajeros() {
     setLoading(true)
     setError(null)
     try {
-      const payload = { username: createUsername, password: createPassword, role: 'cajero' }
+      const payload: any = { username: createUsername, password: createPassword, role: 'cajero' }
+      if (createName) payload.nombre_usuario = createName
       const { error } = await supabase.from('users').insert(payload)
       if (error) throw error
       setCreateUsername('')
       setCreatePassword('')
+      setCreateName('')
       await loadUsers()
     } catch (err: any) {
       setError(err?.message || String(err))
@@ -49,6 +53,7 @@ export default function UsuariosCajeros() {
   function startEdit(u: any) {
     setEditId(u.id)
     setEditUsername(u.username || '')
+    setEditName(u.nombre_usuario || '')
     setEditPassword('')
     setError(null)
   }
@@ -57,6 +62,7 @@ export default function UsuariosCajeros() {
     setEditId(null)
     setEditUsername('')
     setEditPassword('')
+    setEditName('')
     setError(null)
   }
 
@@ -68,6 +74,7 @@ export default function UsuariosCajeros() {
     try {
       const payload: any = { username: editUsername }
       if (editPassword) payload.password = editPassword
+      payload.nombre_usuario = editName || null
       const { error } = await supabase.from('users').update(payload).eq('id', editId)
       if (error) throw error
       cancelEdit()
@@ -107,7 +114,7 @@ export default function UsuariosCajeros() {
   const filtered = users.filter(u => {
     if (!search) return true
     const s = search.toLowerCase()
-    return (u.username || '').toLowerCase().includes(s) || (String(u.id) || '').includes(s) || (u.role || '').toLowerCase().includes(s)
+    return (u.username || '').toLowerCase().includes(s) || (String(u.id) || '').includes(s) || (u.role || '').toLowerCase().includes(s) || (u.nombre_usuario || '').toLowerCase().includes(s)
   })
 
   return (
@@ -129,6 +136,7 @@ export default function UsuariosCajeros() {
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input placeholder="Nuevo usuario" className="input" value={createUsername} onChange={(e) => setCreateUsername(e.target.value)} />
+          <input placeholder="Nombre" className="input" value={createName} onChange={(e) => setCreateName(e.target.value)} />
           <input placeholder="Contraseña" className="input" type="password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
           <button onClick={() => createUser()} className="btn-primary">Crear (role: cajero)</button>
         </div>
@@ -143,6 +151,7 @@ export default function UsuariosCajeros() {
               <tr>
                 <th>ID</th>
                 <th>Usuario</th>
+                <th>Nombre</th>
                 <th>Rol</th>
               </tr>
             </thead>
@@ -155,6 +164,13 @@ export default function UsuariosCajeros() {
                       <input className="input" value={editUsername} onChange={e => setEditUsername(e.target.value)} />
                     ) : (
                       u.username || '-'
+                    )}
+                  </td>
+                  <td style={{ minWidth: 180 }}>
+                    {editId === u.id ? (
+                      <input className="input" value={editName} onChange={e => setEditName(e.target.value)} />
+                    ) : (
+                      u.nombre_usuario || '-'
                     )}
                   </td>
                   <td style={{ width: 220 }}>

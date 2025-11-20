@@ -8,10 +8,13 @@ import Dashboard from './adminViews/Dashboard';
 import DatosEmpresa from './adminViews/DatosEmpresa';
 import UsuariosWeb from './adminViews/UsuariosWeb';
 import UsuariosCajeros from './UsuariosCajeros'
-import CAITable from './adminViews/CAITable'
+import CAI from './adminViews/CAI';
 import Facturas from './adminViews/Facturas';
 import HistorialFacturas from './adminViews/HistorialFacturas';
 import InventarioTable from './adminViews/InventarioTable'
+import Precios from './adminViews/Precios'
+import PreciosHistorico from './adminViews/PreciosHistorico'
+import Stock from './adminViews/Stock'
 import EntradasSalidas from './adminViews/EntradasSalidas';
 import CategoriasMarcas from './adminViews/CategoriasMarcas';
 import SesionesCaja from './adminViews/SesionesCaja';
@@ -25,6 +28,9 @@ import RepExport from './adminViews/RepExport';
 import CuentasContables from './adminViews/CuentasContables';
 import LibroDiario from './adminViews/LibroDiario';
 import Auditoria from './adminViews/Auditoria';
+import CAIView from './adminViews/CAI';
+import Proveedores from './adminViews/Proveedores';
+import ComprasMain from './adminViews/ComprasMain';
 
 
 // Mapeo de IDs de menú a componentes para renderizado dinámico
@@ -34,12 +40,16 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   datos: DatosEmpresa,
   usuarios_internal: UsuariosCajeros,
   usuarios_web: UsuariosWeb,
-  cai: CAITable,
+  cai: CAIView,
   facturas: Facturas,
   historial_facturas: HistorialFacturas,
   inventario_productos: InventarioTable,
+  precios_productos: Precios,
+  precios_historico: PreciosHistorico,
+  stock: Stock,
   inventario_salidas: EntradasSalidas,
   inventario_categorias: CategoriasMarcas,
+  proveedores: Proveedores,
   // ... (Añadir el resto de mapeos de sub_id a componentes)
   caja_sesiones: SesionesCaja,
   caja_movimientos: MovimientosCaja,
@@ -47,6 +57,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   rep_devoluciones: RepDevoluciones,
   rep_ingresos_egresos: RepIngresosEgresos,
   rep_compras: RepCompras,
+  compras_main: ComprasMain,
   rep_export: RepExport,
   cuentas_contables: CuentasContables,
   libro_diario: LibroDiario,

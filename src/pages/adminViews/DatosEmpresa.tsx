@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from 'react'
+import Confirmado from '../../components/Confirmado'
 
 export default function DatosEmpresa() {
   const [company, setCompany] = useState<any | null>(null)
   const [companyLoading, setCompanyLoading] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null)
+  const [pendingSave, setPendingSave] = useState<boolean>(false)
+  const [pendingPayload, setPendingPayload] = useState<any | null>(null)
+  const [pendingNeedsLogo, setPendingNeedsLogo] = useState<boolean>(false)
+  const [lastSaveError, setLastSaveError] = useState<string | null>(null)
+  const [lastSavedLogo, setLastSavedLogo] = useState<string | null>(null)
+  const [confirmadoOpen, setConfirmadoOpen] = useState(false)
+  const [confirmadoTitle, setConfirmadoTitle] = useState<string>('')
+  const [confirmadoMessage, setConfirmadoMessage] = useState<string>('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [editLogoUrl, setEditLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -54,34 +66,267 @@ export default function DatosEmpresa() {
 
   useEffect(() => { if (company) setEditForm(company) }, [company])
 
+  useEffect(() => {
+    try {
+      const p = localStorage.getItem('pendingCompanySave')
+      if (p) {
+        const parsed = JSON.parse(p)
+        setPendingSave(true)
+        setPendingPayload(parsed.payload ?? null)
+        setPendingNeedsLogo(Boolean(parsed.needsLogo))
+      }
+    } catch {}
+  }, [])
+
+  // Resolve public URL for stored company logo (uses Supabase storage getPublicUrl/createSignedUrl)
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        if (!company || !company.logo) { if (mounted) setLogoUrl(null); return }
+        const v = String(company.logo)
+        if (v.startsWith('http')) { if (mounted) setLogoUrl(v); return }
+        const sup = (await import('../../lib/supabaseClient')).default
+        const BUCKET = 'logo'
+        const publicRes = await sup.storage.from(BUCKET).getPublicUrl(v)
+        const publicUrl = (publicRes as any)?.data?.publicUrl ?? null
+        if (publicUrl) { if (mounted) setLogoUrl(publicUrl); return }
+        const signed = await sup.storage.from(BUCKET).createSignedUrl(v, 60 * 60)
+        const signedUrl = (signed as any)?.data?.signedUrl ?? null
+        if (signedUrl) { if (mounted) setLogoUrl(signedUrl); return }
+        if (mounted) setLogoUrl(null)
+      } catch (err) {
+        console.warn('Error resolving company logo URL', err)
+        if (mounted) setLogoUrl(null)
+      }
+    })()
+    return () => { mounted = false }
+  }, [company?.logo])
+
+  // Resolve public URL for editForm logo or use preview
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        if (logoPreviewUrl) { if (mounted) setEditLogoUrl(logoPreviewUrl); return }
+        const v = editForm?.logo
+        if (!v) { if (mounted) setEditLogoUrl(null); return }
+        const s = String(v)
+        if (s.startsWith('http')) { if (mounted) setEditLogoUrl(s); return }
+        const sup = (await import('../../lib/supabaseClient')).default
+        const BUCKET = 'logo'
+        const publicRes = await sup.storage.from(BUCKET).getPublicUrl(s)
+        const publicUrl = (publicRes as any)?.data?.publicUrl ?? null
+        if (publicUrl) { if (mounted) setEditLogoUrl(publicUrl); return }
+        const signed = await sup.storage.from(BUCKET).createSignedUrl(s, 60 * 60)
+        const signedUrl = (signed as any)?.data?.signedUrl ?? null
+        if (signedUrl) { if (mounted) setEditLogoUrl(signedUrl); return }
+        if (mounted) setEditLogoUrl(null)
+      } catch (err) {
+        console.warn('Error resolving edit logo URL', err)
+        if (mounted) setEditLogoUrl(null)
+      }
+    })()
+    return () => { mounted = false }
+  }, [editForm?.logo, logoPreviewUrl])
+
   function startEdit() { setEditing(true); setEditForm(company || {}) }
-  function cancelEdit() { setEditing(false); setEditForm(company || {}) }
+  function cancelEdit() { setEditing(false); try { if (logoPreviewUrl) { URL.revokeObjectURL(logoPreviewUrl); setLogoPreviewUrl(null) } } catch {} setEditForm(company || {}) }
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) { const { name, value } = e.target; setEditForm((s: any) => ({ ...s, [name]: value })) }
+
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null
+    setEditForm((s: any) => ({ ...s, logoFile: f }))
+    if (f) {
+      try {
+        const url = URL.createObjectURL(f)
+        setLogoPreviewUrl(url)
+      } catch { setLogoPreviewUrl(null) }
+    } else {
+      setLogoPreviewUrl(null)
+    }
+  }
+
+  function getLogoSrc(useEdit = false) {
+    const BUCKET = 'logo'
+    const SUP_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://sqwqlvsjtimallidxrsz.supabase.co'
+    if (useEdit) {
+      if (logoPreviewUrl) return logoPreviewUrl
+      const v = editForm?.logo
+      if (!v) return '/logo192.png'
+      if (String(v).startsWith('http')) return String(v)
+      let obj = String(v)
+      if (obj.startsWith(`${BUCKET}/`)) obj = obj.slice(BUCKET.length + 1)
+      return `${SUP_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(obj)}`
+    }
+    if (!company) return '/logo192.png'
+    const v = company.logo
+    if (!v) return '/logo192.png'
+    if (String(v).startsWith('http')) return String(v)
+    let obj = String(v)
+    if (obj.startsWith(`${BUCKET}/`)) obj = obj.slice(BUCKET.length + 1)
+    return `${SUP_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(obj)}`
+  }
 
   async function saveCompany() {
     try {
       const sup = (await import('../../lib/supabaseClient')).default
       const payload = { ...(editForm || {}) }
+      // handle logo file upload to Supabase storage bucket 'logo'
+      let storedLogoPath: string | null = null
+      const getStoragePath = (img: string | null) => {
+        if (!img) return null
+        if (!img.startsWith('http')) return img
+        const m = img.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.*)/)
+        if (!m) return null
+        return decodeURIComponent(m[2])
+      }
+      const oldImage = company?.logo ?? null
+      try {
+        const file: File | null = (editForm && (editForm.logoFile instanceof File)) ? editForm.logoFile : null
+        const BUCKET = 'logo'
+        if (file) {
+          const namePrefix = payload.id ?? (crypto && (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()))
+          const filename = `logo/${namePrefix}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_/]/g, '_')}`
+          const uploadRes = await sup.storage.from(BUCKET).upload(filename, file, { upsert: true })
+          if (uploadRes.error) throw uploadRes.error
+          const storedPath = (uploadRes as any).data?.path ?? filename
+          storedLogoPath = storedPath
+          payload.logo = storedPath
+        }
+      } catch (err) {
+        console.warn('Logo upload error', err)
+      }
+      // remove non-serializable file object before saving to DB
+      try { if (payload.logoFile) delete payload.logoFile } catch {}
       let result: any = null
-      if (company && company.id) {
-        const { data, error } = await sup.from('empresa').update(payload).eq('id', company.id).select().single()
-        if (error) throw error
-        result = data
-      } else {
-        const { data, error } = await sup.from('empresa').insert(payload).select().single()
-        if (error) throw error
-        result = data
+      try {
+        if (company && company.id) {
+          const { data, error } = await sup.from('empresa').update(payload).eq('id', company.id).select('*')
+          if (error) throw error
+          result = Array.isArray(data) ? data[0] ?? null : data
+        } else {
+          const { data, error } = await sup.from('empresa').insert(payload).select('*')
+          if (error) throw error
+          result = Array.isArray(data) ? data[0] ?? null : data
+        }
+        // DB update succeeded: now remove old logo if we uploaded a new one
+        try {
+          if (storedLogoPath) {
+            const oldPath = getStoragePath(oldImage)
+            if (oldPath && oldPath !== storedLogoPath) {
+              const BUCKET = 'logo'
+              const rm = await sup.storage.from(BUCKET).remove([oldPath])
+              if (rm.error) console.warn('Failed to remove old company logo after DB update', rm.error)
+            }
+          }
+        } catch (rmErr) {
+          console.warn('Error removing old logo after DB success', rmErr)
+        }
+      } catch (dbErr) {
+        // If DB update failed but we uploaded a new logo, try to remove the uploaded logo to avoid orphan files
+        try {
+          if (storedLogoPath) {
+            const BUCKET = 'logo'
+            const rm = await sup.storage.from(BUCKET).remove([storedLogoPath])
+            if (rm.error) console.warn('Failed to remove uploaded logo after DB error', rm.error)
+          }
+        } catch (rmErr) {
+          console.warn('Error cleaning uploaded logo after DB failure', rmErr)
+        }
+        throw dbErr
       }
 
       setCompany(result)
       setEditForm(result)
+      try { console.debug('Empresa guardada, logo field:', result?.logo) } catch {}
+      try { setLastSavedLogo(result?.logo ?? null) } catch {}
+      // show modal confirmation
+      try {
+        setConfirmadoTitle('Datos guardados')
+        setConfirmadoMessage('Los datos de la empresa se guardaron correctamente.')
+        setConfirmadoOpen(true)
+      } catch {}
+      // cleanup preview URL if any
+      try { if (logoPreviewUrl) { URL.revokeObjectURL(logoPreviewUrl); setLogoPreviewUrl(null) } } catch {}
       try { localStorage.setItem('companyData', JSON.stringify(result)) } catch {}
       setEditing(false)
-      alert('Datos de la empresa guardados correctamente')
     } catch (err: any) {
       console.error('Error guardando empresa en Supabase', err)
-      try { setCompany(editForm); localStorage.setItem('companyData', JSON.stringify(editForm)); setEditing(false); alert('Guardado localmente (no se pudo alcanzar Supabase)') } catch {}
+      try { setLastSaveError(err?.message || String(err)) } catch {}
+      // Save payload locally (without File objects) so user can retry later
+      try {
+        const payloadToStore = { ...(editForm || {}) }
+        // remove file objects which cannot be serialized
+        if (payloadToStore.logoFile) {
+          delete payloadToStore.logoFile
+        }
+        const needsLogo = Boolean(editForm && (editForm.logoFile instanceof File))
+        localStorage.setItem('pendingCompanySave', JSON.stringify({ payload: payloadToStore, needsLogo, ts: Date.now() }))
+          setPendingSave(true)
+          setPendingPayload(payloadToStore)
+          setPendingNeedsLogo(needsLogo)
+          setCompany(editForm)
+          try { localStorage.setItem('companyData', JSON.stringify(editForm)) } catch {}
+          setEditing(false)
+          // show modal for local save notice as well
+          setConfirmadoTitle('Guardado localmente')
+          setConfirmadoMessage('Los datos se guardaron localmente porque no se pudo alcanzar Supabase. Puedes reintentar cuando tengas conexión.')
+          setConfirmadoOpen(true)
+      } catch (e) {
+        console.error('Error saving locally', e)
+      }
     }
+  }
+
+  async function resendPending() {
+    const pending = pendingPayload
+    if (!pending) {
+      setConfirmadoTitle('Sin pendientes')
+      setConfirmadoMessage('No hay datos pendientes para enviar')
+      setConfirmadoOpen(true)
+      return
+    }
+    try {
+      const sup = (await import('../../lib/supabaseClient')).default
+      let result: any = null
+      if (pending.id) {
+        const { data, error } = await sup.from('empresa').update(pending).eq('id', pending.id).select('*')
+        if (error) throw error
+        result = Array.isArray(data) ? data[0] ?? null : data
+      } else {
+        const { data, error } = await sup.from('empresa').insert(pending).select('*')
+        if (error) throw error
+        result = Array.isArray(data) ? data[0] ?? null : data
+      }
+      // success: clear pending
+      localStorage.removeItem('pendingCompanySave')
+      setPendingSave(false)
+      setPendingPayload(null)
+      setPendingNeedsLogo(false)
+      setCompany(result)
+      setEditForm(result)
+      setConfirmadoTitle('Sincronizado')
+      setConfirmadoMessage('Los datos pendientes se sincronizaron con Supabase correctamente.')
+      setConfirmadoOpen(true)
+    } catch (err: any) {
+      console.error('Error reenviando datos pendientes', err)
+      setConfirmadoTitle('Error al reenviar')
+      setConfirmadoMessage('No se pudo reenviar los datos a Supabase: ' + (err?.message || String(err)))
+      setConfirmadoOpen(true)
+    }
+  }
+
+  function discardPending() {
+    try {
+      localStorage.removeItem('pendingCompanySave')
+      setPendingSave(false)
+      setPendingPayload(null)
+      setPendingNeedsLogo(false)
+      setConfirmadoTitle('Pendiente descartado')
+      setConfirmadoMessage('El guardado pendiente fue descartado.')
+      setConfirmadoOpen(true)
+    } catch {}
   }
 
   function resetToJson() { fetch('/data-base/company.json').then(r => r.json()).then(d => { setCompany(d); setEditForm(d); localStorage.removeItem('companyData') }).catch(() => {}) }
@@ -96,13 +341,37 @@ export default function DatosEmpresa() {
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ background: '#fff', padding: 18, borderRadius: 8, minWidth: 420, boxShadow: '0 1px 3px rgba(2,6,23,0.06)' }}>
+            {pendingSave ? (
+              <div style={{ background: '#fff7ed', border: '1px solid #fbbf24', padding: 8, borderRadius: 6, marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <strong>Guardado localmente:</strong> Los datos no se sincronizaron con Supabase.
+                    {lastSaveError ? <div style={{ fontSize: 12, color: '#b91c1c' }}>Error: {String(lastSaveError)}</div> : null}
+                    {pendingNeedsLogo ? <div style={{ fontSize: 12, color: '#92400e' }}>Nota: el archivo de logo no se incluyó y deberá subirse de nuevo.</div> : null}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn-primary" onClick={resendPending}>Reintentar guardar en Supabase</button>
+                    <button className="btn-opaque" onClick={discardPending}>Descartar pendiente</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {lastSavedLogo ? (
+              <div style={{ marginBottom: 8, fontSize: 13 }}>
+                <strong>Logo guardado:</strong>
+                <div style={{ marginTop: 6 }}>
+                  <a href={getLogoSrc(false)} target="_blank" rel="noopener noreferrer">Abrir logo</a>
+                  <div style={{ color: '#374151', fontSize: 12 }}>{String(lastSavedLogo)}</div>
+                </div>
+              </div>
+            ) : null}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div style={{ width: 120, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: 6, overflow: 'hidden' }}>
-                <img src={editing ? (editForm.logo || '/logo192.png') : (company.logo || '/logo192.png')} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                <div style={{ width: 120, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: 6, overflow: 'hidden' }}>
+                <img src={editing ? (editLogoUrl ?? getLogoSrc(true)) : (logoUrl ?? getLogoSrc(false))} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
               </div>
               <h3 style={{ marginTop: 0 }}>{company.nombre}</h3>
             </div>
-            <div style={{ marginTop: 8, color: '#334155' }}>
+              <div style={{ marginTop: 8, color: '#334155' }}>
               <div style={{ marginBottom: 8 }}><strong>RTN:</strong> {editing ? (
                 <input name="rtn" value={editForm.rtn || ''} onChange={handleChange} className="input" />
               ) : company.rtn}</div>
@@ -115,9 +384,25 @@ export default function DatosEmpresa() {
               <div style={{ marginBottom: 8 }}><strong>Dirección:</strong> {editing ? (
                 <textarea name="direccion" value={editForm.direccion || ''} onChange={handleChange} className="input" style={{ minHeight: 64 }} />
               ) : company.direccion}</div>
-              <div style={{ marginBottom: 8 }}><strong>Logo (URL):</strong> {editing ? (
-                <input name="logo" value={editForm.logo || ''} onChange={handleChange} className="input" placeholder="https://.../logo.png" />
-              ) : (<span style={{ marginLeft: 6 }}>{company.logo ? 'URL configurada' : 'No hay logo'}</span>)}</div>
+              <div style={{ marginBottom: 8 }}>
+                <strong>Logo (archivo o URL):</strong>
+                {editing ? (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                    <input type="file" accept="image/*" onChange={handleLogoFileChange} />
+                    <input name="logo" value={editForm.logo || ''} onChange={handleChange} className="input" placeholder="https://.../logo.png" style={{ flex: 1 }} />
+                  </div>
+                ) : (
+                  <span style={{ marginLeft: 6 }}>{company.logo ? 'URL configurada' : 'No hay logo'}</span>
+                )}
+                {editing && logoPreviewUrl ? (
+                  <div style={{ marginTop: 8 }}>
+                    <small>Preview:</small>
+                    <div style={{ width: 160, height: 60, marginTop: 6, background: '#fff', border: '1px solid #e6e6e6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={logoPreviewUrl} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
@@ -129,7 +414,6 @@ export default function DatosEmpresa() {
               ) : (
                 <>
                   <button type="button" onClick={startEdit} className="btn-primary">Actualizar datos</button>
-                  <button type="button" onClick={resetToJson} className="btn-opaque">Restaurar valores</button>
                 </>
               )}
             </div>
@@ -139,7 +423,7 @@ export default function DatosEmpresa() {
             <div style={{ background: '#fff', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ width: 220, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
                 <img
-                  src={editing ? (editForm.logo || '/logo192.png') : (company.logo || '/logo192.png')}
+                  src={editing ? (editLogoUrl ?? getLogoSrc(true)) : (logoUrl ?? getLogoSrc(false))}
                   alt="logo"
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                 />
@@ -153,6 +437,9 @@ export default function DatosEmpresa() {
           </div>
         </div>
       )}
+      <Confirmado open={confirmadoOpen} title={confirmadoTitle} message={confirmadoMessage} onClose={() => setConfirmadoOpen(false)} />
     </div>
   )
 }
+  
+

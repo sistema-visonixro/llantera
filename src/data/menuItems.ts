@@ -13,7 +13,7 @@ export const menuItems: any[] = [
     id: 'factura',
     label: 'Factura y CAI',
     children: [
-      { id: 'cai', label: 'CAI (cai)' },
+      { id: 'cai', label: 'Gestio de CAI por cajas' },
       { id: 'facturas', label: 'Facturas (ventas)' },
       { id: 'historial_facturas', label: 'Historial de facturas' }
     ]
@@ -23,6 +23,9 @@ export const menuItems: any[] = [
     label: 'Inventario',
     children: [
       { id: 'inventario_productos', label: 'Productos (Inventario)' },
+      { id: 'precios_productos', label: 'Precios de productos' },
+      { id: 'precios_historico', label: 'Histórico de precios' },
+      { id: 'stock', label: 'Stock' },
       { id: 'inventario_salidas', label: 'Entradas/Salidas (salidas_inventario)' },
       { id: 'inventario_categorias', label: 'Categorías / Marcas (opcional)' }
     ]
