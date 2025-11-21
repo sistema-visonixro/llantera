@@ -11,6 +11,7 @@ type CaiRow = {
   fecha_vencimiento: string | null
   caja: number | null
   cajero?: string | null
+  usuario_id?: number | null
 }
 
 export default function CAIView() {
@@ -30,7 +31,7 @@ export default function CAIView() {
     try {
       const { data, error } = await supabase
         .from('cai')
-        .select('id, cai, rango_de, rango_hasta, fecha_vencimiento, caja, cajero')
+        .select('id, cai, rango_de, rango_hasta, fecha_vencimiento, caja, cajero, usuario_id')
         .order('id', { ascending: true })
       if (error) throw error
       setRows(Array.isArray(data) ? data as CaiRow[] : [])
@@ -75,7 +76,7 @@ export default function CAIView() {
     setModalRow(null)
   }
 
-  async function handleModalSave(id: number, payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null }) {
+  async function handleModalSave(id: number, payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) {
     setLoading(true)
     setError(null)
     try {
@@ -111,6 +112,7 @@ export default function CAIView() {
               <th>Rango Hasta</th>
               <th>Vencimiento</th>
               <th>Cajero</th>
+              <th>Usuario ID</th>
               <th>Caja</th>
               <th>Acciones</th>
             </tr>
@@ -124,6 +126,7 @@ export default function CAIView() {
                 <td>{r.rango_hasta}</td>
                 <td>{r.fecha_vencimiento}</td>
                 <td style={{ minWidth: 180 }}>{r.cajero || '-'}</td>
+                <td style={{ minWidth: 160 }}>{r.usuario_id ?? '-'}</td>
                 <td style={{ width: 120 }}>
                   {r.caja ?? '-'}
                 </td>

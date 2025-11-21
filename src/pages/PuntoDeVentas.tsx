@@ -11,6 +11,7 @@ import PaymentModal from '../components/PaymentModal'
 import ProductTable from '../components/ProductTable'
 import Cart from '../components/Cart'
 import HeaderBar from '../components/HeaderBar'
+import DatosFacturaModal from '../components/DatosFacturaModal'
 import ModalWrapper from '../components/ModalWrapper'
 import ImageFallback from '../components/ImageFallback'
 import LocationModal from '../components/LocationModal'
@@ -346,15 +347,18 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo('final')
     setClienteNombre('Consumidor Final')
     setClienteRTN('C/F')
-    setFacturarModalOpen(false)
+    console.debug('doFacturaClienteFinal: abrir modal pago (invoiceAfterPayment)')
     setInvoiceAfterPayment(true)
     setPaymentModalOpen(true)
+    setFacturarModalOpen(false)
   }
 
   const doFacturaClienteNormal = () => {
     setClienteTipo('normal')
     setClienteNombre('')
     setClienteRTN('')
+    setPaymentDone(false)
+    setPaymentInfo(null)
     setClienteNormalModalOpen(true)
     setFacturarModalOpen(false)
   }
@@ -363,6 +367,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo('juridico')
     setClienteNombre('')
     setClienteRTN('')
+    setPaymentDone(false)
+    setPaymentInfo(null)
     setClienteNormalModalOpen(true)
     setFacturarModalOpen(false)
   }
@@ -395,74 +401,41 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // registrar venta y detalles
     if (printingMode === 'factura') {
       try {
-        let clienteIdNum: number | null = null
+        // intentar obtener datos de CAI del usuario actual (buscar por nombre de cajero en la columna `cajero`)
+        let caiData = null
+        let userId: string | null = null
         try {
-          if (rtn) {
-            const { data: foundClient, error: foundErr } = await supabase.from('clientes').select('id').eq('rtn', rtn).maybeSingle()
-            if (foundErr) console.debug('Error buscando cliente por RTN (no fatal):', foundErr)
-            if (foundClient && (foundClient as any).id) clienteIdNum = (foundClient as any).id
-          }
-        } catch (e) { console.debug('ignore', e) }
-
-        const tipoPagoValue = paymentPayload && paymentPayload.tipoPagoString ? String(paymentPayload.tipoPagoString) : ''
-        // generar número de factura (texto)
-        const facturaNum = String(Math.floor(Math.random() * 900000) + 100000)
-        const ventaPayload: any = {
-          cliente_id: clienteIdNum,
-          usuario: userName || 'system',
-          factura: facturaNum,
-          tipo_pago: tipoPagoValue,
-          subtotal: Number(subtotal || 0),
-          impuesto: Number((isvTotal + imp18Total + impTouristTotal) || 0),
-          total: Number(total || 0),
-          estado: 'pagada'
-        }
-
-        const { data: ventaInsRaw, error: ventaErr } = await supabase.from('ventas').insert([ventaPayload]).select('id, factura')
-        console.debug('Insert venta response:', { ventaInsRaw, ventaErr })
-        if (ventaErr) {
-          console.warn('Error insertando venta:', ventaErr)
-          alert('Error guardando venta: ' + (ventaErr.message || JSON.stringify(ventaErr)))
-        } else {
-          const ventaRow: any = Array.isArray(ventaInsRaw) ? ventaInsRaw[0] : ventaInsRaw
-          let ventaId: string | null = ventaRow ? (ventaRow.id || ventaRow['id']) : null
-          if (!ventaId) {
+          const rawU = localStorage.getItem('user')
+          const parsedU = rawU ? JSON.parse(rawU) : null
+          userId = parsedU && (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id) ? (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id) : null
+          const userNameFromStorage = parsedU && (parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name) ? (parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name) : null
+          console.debug('PV: CAI lookup - raw localStorage.user:', rawU)
+          console.debug('PV: CAI lookup - parsed user object:', parsedU)
+          console.debug('PV: CAI lookup - extracted userId:', userId, 'typeof', typeof userId)
+          console.debug('PV: CAI lookup - extracted userNameFromStorage:', userNameFromStorage)
+          if (userId) {
+            // normalizar id para la consulta: si parece un entero, pasar Number()
+            const userIdQuery: any = (typeof userId === 'string' && /^\d+$/.test(userId)) ? Number(userId) : userId
             try {
-              const { data: foundByFact, error: fbErr } = await supabase.from('ventas').select('id').eq('factura', facturaNum).maybeSingle()
-              if (fbErr) console.debug('Error buscando venta por factura (fallback):', fbErr)
-              if (foundByFact && (foundByFact as any).id) ventaId = (foundByFact as any).id
-            } catch (e) { console.debug('fallback lookup error', e) }
-          }
-
-          if (!ventaId) {
-            console.warn('No se pudo obtener venta.id tras insertar. Respuesta:', ventaInsRaw)
-            alert('Advertencia: venta creada pero no se pudo recuperar su id. Revisa la tabla ventas.')
-          } else {
-            // insertar detalles con ventaId en la columna `factura` (uuid)
-            const detalles = carrito.map(it => {
-              const price = Number(it.producto.precio || 0)
-              const qty = Number(it.cantidad || 0)
-              const subtotalItem = price * qty
-              const descuento = 0
-              const totalItem = subtotalItem - descuento
-              return {
-                factura: ventaId,
-                producto_id: it.producto.id,
-                cantidad: qty,
-                precio_unitario: price,
-                subtotal: subtotalItem,
-                descuento,
-                total: totalItem
-              }
-            })
-            const { data: detalleIns, error: detErr } = await supabase.from('ventas_detalle').insert(detalles).select('id')
-            console.debug('Insert ventas_detalle response:', { detalleIns, detErr })
-            if (detErr) {
-              console.warn('Error insertando ventas_detalle:', detErr)
-              alert('Error guardando detalle de venta: ' + (detErr.message || JSON.stringify(detErr)))
+              // solicitar solo columnas que existen en el DDL: fecha_vencimiento, rango_de, rango_hasta
+              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
+              if (!caiUserErr && Array.isArray(caiRowsByUser) && caiRowsByUser.length > 0) caiData = caiRowsByUser[0]
+            } catch (e) {
+              console.debug('PV: CAI lookup by usuario_id failed (likely column missing):', e)
             }
           }
+          if (!caiData && userNameFromStorage) {
+            try {
+              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
+              if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) caiData = caiRows[0]
+            } catch (e) {
+              console.debug('PV: CAI lookup by cajero failed:', e)
+            }
+          }
+        } catch (e) {
+          console.debug('No se pudo cargar CAI desde frontend:', e)
         }
+        await insertVenta({ clienteName: cliente, rtn, paymentPayload, caiData, usuarioId: userId })
       } catch (e) {
         console.warn('Error preparando venta antes de imprimir:', e)
         alert('Error preparando venta antes de imprimir: ' + String(e))
@@ -486,6 +459,187 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       setCotizacionPendingClient({ cliente, rtn })
       setCotizacionConfirmOpen(true)
     }
+  }
+
+  // helper: inserta venta y sus detalles en supabase
+// opcional: caiData { id, cai, fecha_limite_emision, rango_desde, rango_hasta, secuencia_actual }
+const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioId }: { clienteName?: string, rtn?: string | null, paymentPayload?: any, caiData?: any, usuarioId?: string | null }) => {
+    if (!carrito || carrito.length === 0) return null
+    const tipoPagoValue = paymentPayload && paymentPayload.tipoPagoString ? String(paymentPayload.tipoPagoString) : ''
+    const totalPaid = paymentPayload && paymentPayload.totalPaid ? Number(paymentPayload.totalPaid || 0) : 0
+    const cambioVal = totalPaid > Number(total || 0) ? (totalPaid - Number(total || 0)) : 0
+
+    // try compute invoice number from CAI if available (factura = rango_de + (secuencia_actual + 1))
+    let facturaNum: string = String(Math.floor(Math.random() * 900000) + 100000)
+    const usedCai = caiData || caiInfoState || null
+    let computedSeqNum: number | null = null
+    if (usedCai && (usedCai.rango_de !== undefined || usedCai.secuencia_actual !== undefined)) {
+      try {
+        const rangoDeRaw = usedCai.rango_de != null ? String(usedCai.rango_de) : ''
+        const rangoHastaRaw = usedCai.rango_hasta != null ? String(usedCai.rango_hasta) : ''
+        const seqRaw = usedCai.secuencia_actual != null ? String(usedCai.secuencia_actual) : ''
+        const rangoDeNum = Number(rangoDeRaw.replace(/[^0-9]/g, '')) || 0
+        const seqNum = Number(seqRaw.replace(/[^0-9]/g, '')) || 0
+        const nextSeq = seqNum + 1
+        computedSeqNum = nextSeq
+        // determine padding width using rango_hasta or rango_de length
+        const padWidth = Math.max((rangoHastaRaw || rangoDeRaw || '').length, String(rangoDeNum + nextSeq).length, 1)
+        const rawValue = rangoDeNum + nextSeq
+        facturaNum = String(rawValue).padStart(padWidth, '0')
+      } catch (e) {
+        console.debug('Error computing factura from cai, falling back to random:', e)
+      }
+    }
+
+    const ventaPayload: any = {
+      rtn: rtn || null,
+      nombre_cliente: clienteName || null,
+      usuario: userName || 'system',
+      factura: facturaNum,
+      tipo_pago: tipoPagoValue,
+      subtotal: Number(subtotal || 0),
+      impuesto: Number((isvTotal + imp18Total + impTouristTotal) || 0),
+      total: Number(total || 0),
+      estado: 'pagada',
+      cambio: String(Number(cambioVal).toFixed(2)),
+      // include CAI metadata when available
+      cai: usedCai?.cai ?? null,
+      rango_desde: usedCai?.rango_de ?? null,
+      rango_hasta: usedCai?.rango_hasta ?? null,
+      fecha_limite_emision: usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null
+    }
+
+    // Try inserting venta; if server reports missing columns (PGRST204 / Could not find...), retry without CAI-related fields
+    let ventaInsRaw: any = null
+    let ventaErr: any = null
+    try {
+      const res = await supabase.from('ventas').insert([ventaPayload]).select('id, factura')
+      ventaInsRaw = (res as any).data ?? res
+      ventaErr = (res as any).error ?? null
+    } catch (e) {
+      ventaErr = e
+    }
+    console.debug('Insert venta response:', { ventaInsRaw, ventaErr })
+    if (ventaErr) {
+      const msg = String((ventaErr && (ventaErr.message || ventaErr.msg || ventaErr.details)) || '')
+      const code = (ventaErr && ventaErr.code) ? String(ventaErr.code) : ''
+      const looksLikeMissingCol = code === 'PGRST204' || msg.includes("Could not find the") || /column .* of 'ventas'/.test(msg)
+      if (looksLikeMissingCol) {
+        console.warn('Insert venta failed due missing column(s). Retrying without CAI fields.', { msg, code })
+        const minimalPayload: any = { ...ventaPayload }
+        delete minimalPayload.cai
+        delete minimalPayload.rango_desde
+        delete minimalPayload.rango_hasta
+        delete minimalPayload.fecha_limite_emision
+        try {
+          const res2 = await supabase.from('ventas').insert([minimalPayload]).select('id, factura')
+          ventaInsRaw = (res2 as any).data ?? res2
+          ventaErr = (res2 as any).error ?? null
+          console.debug('Fallback insert ventas response:', { ventaInsRaw, ventaErr })
+          if (ventaErr) throw ventaErr
+        } catch (e) {
+          console.error('Fallback insert also failed:', e)
+          throw e
+        }
+      } else {
+        throw ventaErr
+      }
+    }
+
+    const ventaRow: any = Array.isArray(ventaInsRaw) ? ventaInsRaw[0] : ventaInsRaw
+    let ventaId: string | null = ventaRow ? (ventaRow.id || ventaRow['id']) : null
+    if (!ventaId) {
+      try {
+        const { data: foundByFact, error: fbErr } = await supabase.from('ventas').select('id').eq('factura', facturaNum).maybeSingle()
+        if (fbErr) console.debug('Error buscando venta por factura (fallback):', fbErr)
+        if (foundByFact && (foundByFact as any).id) ventaId = (foundByFact as any).id
+      } catch (e) { console.debug('fallback lookup error', e) }
+    }
+
+    if (!ventaId) {
+      console.warn('No se pudo obtener venta.id tras insertar. Respuesta:', ventaInsRaw)
+      return null
+    }
+
+    const detalles = carrito.map(it => {
+      const price = Number(it.producto.precio || 0)
+      const qty = Number(it.cantidad || 0)
+      const subtotalItem = price * qty
+      const descuento = 0
+      const totalItem = subtotalItem - descuento
+      return {
+        venta_id: ventaId,
+        factura: facturaNum,
+        producto_id: it.producto.id,
+        cantidad: qty,
+        precio_unitario: price,
+        subtotal: subtotalItem,
+        descuento,
+        total: totalItem
+      }
+    })
+    // Si existe caiData y usuarioId, preferimos crear venta vía función RPC atómica
+    // Pero sólo llamamos al RPC si el usuarioId parece un UUID (la función espera UUID en muchas instalaciones).
+    const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(v)
+    if (caiData && usuarioId && isUuid(usuarioId)) {
+      try {
+        const rpcDetalles = carrito.map(it => ({
+          producto_id: String(it.producto.id),
+          cantidad: Number(it.cantidad || 0),
+          precio_unitario: Number(it.producto.precio || 0),
+          subtotal: Number((Number(it.producto.precio || 0) * it.cantidad).toFixed(6)),
+          descuento: 0,
+          total: Number((Number(it.producto.precio || 0) * it.cantidad).toFixed(6))
+        }))
+
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('create_venta_with_detalle', {
+          p_usuario_id: usuarioId,
+          p_usuario: userName || usuarioId,
+          p_rtn: rtn || null,
+          p_nombre_cliente: clienteName || null,
+          p_tipo_pago: tipoPagoValue,
+          p_subtotal: Number(subtotal || 0),
+          p_impuesto: Number((isvTotal + imp18Total + impTouristTotal) || 0),
+          p_total: Number(total || 0),
+          p_cambio: String(Number(cambioVal).toFixed(2)),
+          p_detalles: rpcDetalles
+        })
+
+        console.debug('RPC create_venta_with_detalle response:', { rpcData, rpcErr })
+        if (rpcErr) {
+          console.warn('RPC create_venta_with_detalle failed, falling back to client inserts', rpcErr)
+        } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+          const row = rpcData[0] as any
+          return row.venta_id || row.venta_id === 0 ? row.venta_id : ventaId
+        } else if (rpcData && (rpcData as any).venta_id) {
+          return (rpcData as any).venta_id
+        }
+        // si RPC no devolvió datos utilizamos el insert manual siguiente
+      } catch (e) {
+        console.warn('Error calling RPC create_venta_with_detalle:', e)
+        // continuar con inserción manual
+      }
+    } else if (caiData && usuarioId) {
+      console.debug('Skipping RPC create_venta_with_detalle because usuarioId is not a UUID. usuarioId:', usuarioId)
+    }
+
+    const { data: detalleIns, error: detErr } = await supabase.from('ventas_detalle').insert(detalles).select('id')
+    console.debug('Insert ventas_detalle response:', { detalleIns, detErr })
+    if (detErr) {
+      throw detErr
+    }
+    // If we inserted manually and computed a new sequence, attempt to persist secuencia_actual in the cai row
+    const manualCaiId = (usedCai && (usedCai.id || usedCai.id === 0)) ? usedCai.id : null
+    if (manualCaiId != null && computedSeqNum != null) {
+      try {
+        const { error: updCaiErr } = await supabase.from('cai').update({ secuencia_actual: computedSeqNum }).eq('id', manualCaiId)
+        if (updCaiErr) console.debug('Error updating cai.secuencia_actual (manual path):', updCaiErr)
+        else console.debug('Updated cai.secuencia_actual to', computedSeqNum, 'for cai id', manualCaiId)
+      } catch (e) {
+        console.debug('Exception updating cai.secuencia_actual:', e)
+      }
+    }
+    return ventaId
   }
 
   // handle cleanup after a print/factura: delete original cotizacion if editing
@@ -579,6 +733,48 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         }
       } catch (e) {
         console.warn('Error marcacion pre-print:', e)
+      }
+    }
+
+    // registrar venta si estamos facturando
+    if (printingMode === 'factura') {
+      try {
+        // no hay paymentPayload en flujo clienteNormal, pasar paymentInfo
+        // intentar obtener datos de CAI del usuario actual (buscar por nombre de cajero en la columna `cajero`)
+        let caiData = null
+        let userId: string | null = null
+        try {
+          const rawU = localStorage.getItem('user')
+          const parsedU = rawU ? JSON.parse(rawU) : null
+          userId = parsedU && (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id) ? (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id) : null
+          const userNameFromStorage = parsedU && (parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name) ? (parsedU.username || parsedU.user?.username || parsedU.name || parsedU.user?.name) : null
+          console.debug('PV (clienteNormal): CAI lookup - raw localStorage.user:', rawU)
+          console.debug('PV (clienteNormal): CAI lookup - parsed user object:', parsedU)
+          console.debug('PV (clienteNormal): CAI lookup - extracted userId:', userId, 'typeof', typeof userId)
+          console.debug('PV (clienteNormal): CAI lookup - extracted userNameFromStorage:', userNameFromStorage)
+          if (userId) {
+            const userIdQuery: any = (typeof userId === 'string' && /^\d+$/.test(userId)) ? Number(userId) : userId
+            try {
+              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
+              if (!caiUserErr && Array.isArray(caiRowsByUser) && caiRowsByUser.length > 0) caiData = caiRowsByUser[0]
+            } catch (e) {
+              console.debug('PV (clienteNormal): CAI lookup by usuario_id failed (likely column missing):', e)
+            }
+          }
+          if (!caiData && userNameFromStorage) {
+            try {
+              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
+              if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) caiData = caiRows[0]
+            } catch (e) {
+              console.debug('PV (clienteNormal): CAI lookup by cajero failed:', e)
+            }
+          }
+        } catch (e) {
+          console.debug('No se pudo cargar CAI desde frontend (cliente normal):', e)
+        }
+        await insertVenta({ clienteName: clienteNombre || 'Cliente', rtn: clienteRTN || null, paymentPayload: paymentInfo, caiData, usuarioId: userId })
+      } catch (e) {
+        console.warn('Error insertando venta en flujo cliente normal:', e)
       }
     }
 
@@ -764,6 +960,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
   const [userName, setUserName] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [userIdState, setUserIdState] = useState<number | string | null>(null)
+  const [caiInfoState, setCaiInfoState] = useState<any | null>(null)
+  const [datosFacturaOpen, setDatosFacturaOpen] = useState(false)
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
@@ -773,6 +972,61 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const u = JSON.parse(raw)
         setUserName(u.username || u.name || null)
         setUserRole(u.role || null)
+        // declare extractedId in outer scope so nested functions can access it
+        let extractedId: any = null
+        try {
+          extractedId = u && (u.id || u.user?.id || u.sub || u.user_id) ? (u.id || u.user?.id || u.sub || u.user_id) : null
+          setUserIdState(extractedId ?? null)
+          console.debug('PV: localStorage.user parsed:', u)
+          console.debug('PV: extracted userId for CAI/RPC usage:', extractedId)
+        } catch (e) {
+          console.debug('PV: error parsing localStorage.user for debug:', e)
+        }
+        // also try to read cai info stored at login
+        try {
+          const rawCai = localStorage.getItem('caiInfo')
+          if (rawCai) {
+            const parsedCai = JSON.parse(rawCai)
+            setCaiInfoState(parsedCai)
+            console.debug('PV: loaded caiInfo from localStorage:', parsedCai);
+            // If some expected fields are missing, try to refetch the latest CAI row from Supabase
+            (async () => {
+              try {
+                const hasAll = parsedCai && (parsedCai.rango_de !== undefined && parsedCai.rango_hasta !== undefined && parsedCai.fecha_vencimiento !== undefined && parsedCai.secuencia_actual !== undefined)
+                if (!hasAll) {
+                  const userNameLocal = u && (u.username || u.user?.username || u.name || u.user?.name) ? (u.username || u.user?.username || u.name || u.user?.name) : null
+                  const userIdLocal: any = extractedId && (typeof extractedId === 'string' && /^\d+$/.test(extractedId)) ? Number(extractedId) : extractedId
+                  let fetched: any = null
+                  try {
+                    if (userIdLocal != null) {
+                      const { data: byUser, error: byUserErr } = await supabase.from('cai').select('id,cai,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdLocal).order('id', { ascending: false }).limit(1)
+                      if (!byUserErr && Array.isArray(byUser) && byUser.length > 0) fetched = byUser[0]
+                    }
+                  } catch (e) {
+                    console.debug('PV: refetch CAI by usuario_id failed (column may be missing):', e)
+                  }
+                  if (!fetched && userNameLocal) {
+                    try {
+                      const { data: byName, error: byNameErr } = await supabase.from('cai').select('id,cai,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameLocal).order('id', { ascending: false }).limit(1)
+                      if (!byNameErr && Array.isArray(byName) && byName.length > 0) fetched = byName[0]
+                    } catch (e) {
+                      console.debug('PV: refetch CAI by cajero failed:', e)
+                    }
+                  }
+                  if (fetched) {
+                    setCaiInfoState(fetched)
+                    try { localStorage.setItem('caiInfo', JSON.stringify(fetched)) } catch (e) {}
+                    console.debug('PV: refreshed caiInfo from Supabase:', fetched)
+                  }
+                }
+              } catch (e) {
+                console.debug('PV: error trying to refresh caiInfo:', e)
+              }
+            })()
+          }
+        } catch (e) {
+          console.debug('PV: error parsing localStorage.caiInfo:', e)
+        }
       }
     } catch (e) {
       // ignore
@@ -934,8 +1188,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       <HeaderBar
         userName={userName}
         userRole={userRole}
+        userId={userIdState}
+        caiInfo={caiInfoState}
         onLogout={onLogout}
         onNavigate={(v) => setView(v)}
+        onOpenDatosFactura={() => setDatosFacturaOpen(true)}
       />
 
       <div style={{ padding: 16, maxWidth: 1600, margin: '0 auto' }}>
@@ -1121,6 +1378,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setCreateClienteModalOpen(false)
         }}
       />
+
+      <DatosFacturaModal open={datosFacturaOpen} onClose={() => setDatosFacturaOpen(false)} caiInfo={caiInfoState} />
 
     </div>
   );

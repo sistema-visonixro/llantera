@@ -17,7 +17,7 @@ type Props = {
   cajeros: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajeros?: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajas?: number[]
-  onSave: (id: number, payload: { caja: number | null; cajero?: string | null }) => Promise<void>
+  onSave: (id: number, payload: { caja: number | null; cajero?: string | null; usuario_id?: number | null }) => Promise<void>
 }
 
 export default function CaiEditModal({ open, onClose, row, cajeros, availableCajeros, availableCajas, onSave }: Props) {
@@ -85,8 +85,10 @@ export default function CaiEditModal({ open, onClose, row, cajeros, availableCaj
       if (cajeroId != null) {
         const sel = cajeros.find(c => c.id === cajeroId)
         payload.cajero = sel ? sel.username : null
+        payload.usuario_id = sel ? sel.id : null
       } else {
         payload.cajero = cajeroUsername ?? null
+        payload.usuario_id = null
       }
       await onSave(row.id, payload)
       onClose()

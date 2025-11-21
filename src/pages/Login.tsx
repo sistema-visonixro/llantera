@@ -49,7 +49,28 @@ export default function Login({ onLogin }: LoginProps) {
       const found = sbData as User
       // Nota importante: en producción NO se deben guardar ni comparar contraseñas en texto plano.
       if (found.password === password) {
-        localStorage.setItem('user', JSON.stringify({ id: found.id, username: found.username, role: found.role }))
+        const toStore = { id: found.id, username: found.username, role: found.role }
+        localStorage.setItem('user', JSON.stringify(toStore))
+        try { console.debug('Login: stored localStorage.user =', toStore) } catch (e) {}
+        // Si es cajero, intentar cargar CAI más reciente y guardarlo en localStorage.caiInfo
+        try {
+          if (found.role === 'cajero') {
+            const { data: caiRows, error: caiErr } = await supabase
+              .from('cai')
+              .select('id, cai, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual')
+              .eq('cajero', found.username)
+              .order('id', { ascending: false })
+              .limit(1)
+            if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) {
+              try { localStorage.setItem('caiInfo', JSON.stringify(caiRows[0])) } catch (e) {}
+              try { console.debug('Login: stored localStorage.caiInfo =', caiRows[0]) } catch (e) {}
+            } else {
+              try { localStorage.removeItem('caiInfo') } catch (e) {}
+            }
+          }
+        } catch (e) {
+          console.debug('Login: error fetching cai for cajero', e)
+        }
         setMessage('Inicio de sesión correcto')
         if (typeof onLogin === 'function') onLogin()
       } else {

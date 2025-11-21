@@ -6,7 +6,7 @@ type Props = {
   cajeros: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajeros?: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajas?: number[]
-  onCreate: (payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null }) => Promise<void>
+  onCreate: (payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) => Promise<void>
 }
 
 export default function CaiCreateModal({ open, onClose, cajeros, availableCajeros, availableCajas, onCreate }: Props) {
@@ -54,8 +54,10 @@ export default function CaiCreateModal({ open, onClose, cajeros, availableCajero
       if (cajeroId != null) {
         const sel = cajeros.find(c => c.id === cajeroId)
         payload.cajero = sel ? sel.username : null
+        payload.usuario_id = sel ? sel.id : null
       } else {
         payload.cajero = cajeroUsername ?? null
+        payload.usuario_id = null
       }
       await onCreate(payload)
       onClose()
