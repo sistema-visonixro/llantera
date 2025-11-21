@@ -416,9 +416,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           if (userId) {
             // normalizar id para la consulta: si parece un entero, pasar Number()
             const userIdQuery: any = (typeof userId === 'string' && /^\d+$/.test(userId)) ? Number(userId) : userId
-            try {
-              // solicitar solo columnas que existen en el DDL: fecha_vencimiento, rango_de, rango_hasta
-              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
+              try {
+              // solicitar columnas relevantes incluyendo identificador y secuencia_actual
+              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
               if (!caiUserErr && Array.isArray(caiRowsByUser) && caiRowsByUser.length > 0) caiData = caiRowsByUser[0]
             } catch (e) {
               console.debug('PV: CAI lookup by usuario_id failed (likely column missing):', e)
@@ -426,7 +426,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           }
           if (!caiData && userNameFromStorage) {
             try {
-              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
+              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
               if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) caiData = caiRows[0]
             } catch (e) {
               console.debug('PV: CAI lookup by cajero failed:', e)
@@ -469,25 +469,38 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
     const totalPaid = paymentPayload && paymentPayload.totalPaid ? Number(paymentPayload.totalPaid || 0) : 0
     const cambioVal = totalPaid > Number(total || 0) ? (totalPaid - Number(total || 0)) : 0
 
-    // try compute invoice number from CAI if available (factura = rango_de + (secuencia_actual + 1))
+    // try compute invoice number from CAI if available (use caiInfoState first)
     let facturaNum: string = String(Math.floor(Math.random() * 900000) + 100000)
-    const usedCai = caiData || caiInfoState || null
+    const usedCai = caiInfoState || caiData || null
     let computedSeqNum: number | null = null
+    let padWidth = 0
+    let nextSeqPadded: string | null = null
+    let currentSeqPadded: string | null = null
     if (usedCai && (usedCai.rango_de !== undefined || usedCai.secuencia_actual !== undefined)) {
       try {
         const rangoDeRaw = usedCai.rango_de != null ? String(usedCai.rango_de) : ''
         const rangoHastaRaw = usedCai.rango_hasta != null ? String(usedCai.rango_hasta) : ''
         const seqRaw = usedCai.secuencia_actual != null ? String(usedCai.secuencia_actual) : ''
-        const rangoDeNum = Number(rangoDeRaw.replace(/[^0-9]/g, '')) || 0
-        const seqNum = Number(seqRaw.replace(/[^0-9]/g, '')) || 0
-        const nextSeq = seqNum + 1
+        // extract numeric portions
+        const rangoDeNum = Number(String(rangoDeRaw).replace(/[^0-9]/g, '')) || 0
+        const rangoHastaNum = Number(String(rangoHastaRaw).replace(/[^0-9]/g, '')) || 0
+        const currentSeqNum = Number(String(seqRaw).replace(/[^0-9]/g, '')) || rangoDeNum || 0
+
+        // determine padding width using rango_hasta or current seq length
+        padWidth = Math.max((rangoHastaRaw || rangoDeRaw || '').length, String(currentSeqNum).length, 1)
+
+        // current factura numeric part (use secuencia_actual if present else rango_de)
+        currentSeqPadded = String(currentSeqNum).padStart(padWidth, '0')
+        // compose factura including identificador if available
+        const identificador = usedCai.identificador ? String(usedCai.identificador) : ''
+        facturaNum = identificador + currentSeqPadded
+
+        // prepare next sequence (to persist after successful save)
+        const nextSeq = currentSeqNum + 1
         computedSeqNum = nextSeq
-        // determine padding width using rango_hasta or rango_de length
-        const padWidth = Math.max((rangoHastaRaw || rangoDeRaw || '').length, String(rangoDeNum + nextSeq).length, 1)
-        const rawValue = rangoDeNum + nextSeq
-        facturaNum = String(rawValue).padStart(padWidth, '0')
+        nextSeqPadded = String(nextSeq).padStart(padWidth, '0')
       } catch (e) {
-        console.debug('Error computing factura from cai, falling back to random:', e)
+        console.debug('Error computing factura from caiInfoState, falling back to random:', e)
       }
     }
 
@@ -504,8 +517,9 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
       cambio: String(Number(cambioVal).toFixed(2)),
       // include CAI metadata when available
       cai: usedCai?.cai ?? null,
-      rango_desde: usedCai?.rango_de ?? null,
-      rango_hasta: usedCai?.rango_hasta ?? null,
+      // compose rango_desde/hasta including identificador when possible
+      rango_desde: (usedCai && usedCai.identificador ? String(usedCai.identificador) : '') + (usedCai?.rango_de != null ? String(usedCai.rango_de) : '' ) || null,
+      rango_hasta: (usedCai && usedCai.identificador ? String(usedCai.identificador) : '') + (usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : '' ) || null,
       fecha_limite_emision: usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null
     }
 
@@ -610,8 +624,32 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
           console.warn('RPC create_venta_with_detalle failed, falling back to client inserts', rpcErr)
         } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
           const row = rpcData[0] as any
+          // Refresh CAI info after RPC (RPC may have updated sequence server-side)
+          try {
+            if (usedCai && usedCai.id != null) {
+              try {
+                const { data: refreshed, error: refErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('id', usedCai.id).maybeSingle()
+                if (!refErr && refreshed) {
+                  setCaiInfoState(refreshed)
+                  try { localStorage.setItem('caiInfo', JSON.stringify(refreshed)) } catch (e) {}
+                }
+              } catch (e) { console.debug('Error refreshing cai after RPC:', e) }
+            }
+          } catch (e) { console.debug('Error during post-RPC cai refresh:', e) }
           return row.venta_id || row.venta_id === 0 ? row.venta_id : ventaId
         } else if (rpcData && (rpcData as any).venta_id) {
+          // also attempt refresh when RPC returns scalar
+          try {
+            if (usedCai && usedCai.id != null) {
+              try {
+                const { data: refreshed, error: refErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('id', usedCai.id).maybeSingle()
+                if (!refErr && refreshed) {
+                  setCaiInfoState(refreshed)
+                  try { localStorage.setItem('caiInfo', JSON.stringify(refreshed)) } catch (e) {}
+                }
+              } catch (e) { console.debug('Error refreshing cai after RPC (scalar):', e) }
+            }
+          } catch (e) { console.debug('Error during post-RPC cai refresh (scalar):', e) }
           return (rpcData as any).venta_id
         }
         // si RPC no devolvió datos utilizamos el insert manual siguiente
@@ -632,9 +670,41 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
     const manualCaiId = (usedCai && (usedCai.id || usedCai.id === 0)) ? usedCai.id : null
     if (manualCaiId != null && computedSeqNum != null) {
       try {
-        const { error: updCaiErr } = await supabase.from('cai').update({ secuencia_actual: computedSeqNum }).eq('id', manualCaiId)
-        if (updCaiErr) console.debug('Error updating cai.secuencia_actual (manual path):', updCaiErr)
-        else console.debug('Updated cai.secuencia_actual to', computedSeqNum, 'for cai id', manualCaiId)
+        // Only persist the next padded sequence if we were able to compute padding
+        const seqToStore = nextSeqPadded != null ? nextSeqPadded : String(computedSeqNum)
+
+        // Optional: validate not exceeding rango_hasta numeric bound
+        try {
+          const rangoHastaRaw = usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : ''
+          const rangoHastaNum = Number(rangoHastaRaw.replace(/[^0-9]/g, '')) || null
+          const toStoreNum = Number(String(seqToStore).replace(/[^0-9]/g, '')) || null
+          if (rangoHastaNum != null && toStoreNum != null && toStoreNum > rangoHastaNum) {
+            console.warn('No se actualizará cai.secuencia_actual porque excede rango_hasta', { toStoreNum, rangoHastaNum })
+          } else {
+              const { error: updCaiErr } = await supabase.from('cai').update({ secuencia_actual: seqToStore }).eq('id', manualCaiId)
+              if (updCaiErr) console.debug('Error updating cai.secuencia_actual (manual path):', updCaiErr)
+              else {
+                console.debug('Updated cai.secuencia_actual to', seqToStore, 'for cai id', manualCaiId)
+                try {
+                  const newCai = { ...(usedCai || {}), secuencia_actual: seqToStore }
+                  setCaiInfoState(newCai)
+                  try { localStorage.setItem('caiInfo', JSON.stringify(newCai)) } catch (e) { }
+                } catch (e) { console.debug('Error updating local caiInfoState/localStorage:', e) }
+              }
+          }
+        } catch (e) {
+          console.debug('Validation error while checking rango_hasta:', e)
+          const { error: updCaiErr } = await supabase.from('cai').update({ secuencia_actual: seqToStore }).eq('id', manualCaiId)
+          if (updCaiErr) console.debug('Error updating cai.secuencia_actual (manual path, after validation fail):', updCaiErr)
+          else {
+            console.debug('Updated cai.secuencia_actual to', seqToStore, 'for cai id', manualCaiId)
+            try {
+              const newCai = { ...(usedCai || {}), secuencia_actual: seqToStore }
+              setCaiInfoState(newCai)
+              try { localStorage.setItem('caiInfo', JSON.stringify(newCai)) } catch (e) { }
+            } catch (e) { console.debug('Error updating local caiInfoState/localStorage (after validation):', e) }
+          }
+        }
       } catch (e) {
         console.debug('Exception updating cai.secuencia_actual:', e)
       }
@@ -755,7 +825,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
           if (userId) {
             const userIdQuery: any = (typeof userId === 'string' && /^\d+$/.test(userId)) ? Number(userId) : userId
             try {
-              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
+              const { data: caiRowsByUser, error: caiUserErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
               if (!caiUserErr && Array.isArray(caiRowsByUser) && caiRowsByUser.length > 0) caiData = caiRowsByUser[0]
             } catch (e) {
               console.debug('PV (clienteNormal): CAI lookup by usuario_id failed (likely column missing):', e)
@@ -763,7 +833,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
           }
           if (!caiData && userNameFromStorage) {
             try {
-              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,fecha_vencimiento,rango_de,rango_hasta').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
+              const { data: caiRows, error: caiErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameFromStorage).order('id', { ascending: false }).limit(1)
               if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) caiData = caiRows[0]
             } catch (e) {
               console.debug('PV (clienteNormal): CAI lookup by cajero failed:', e)
@@ -965,6 +1035,39 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
   const [datosFacturaOpen, setDatosFacturaOpen] = useState(false)
   const [imageUrls, setImageUrls] = useState<Record<string, string | null>>({})
 
+  // function to refresh caiInfo from backend and update state/localStorage
+  const refreshCaiInfo = async () => {
+    try {
+      let caiFetched: any = null
+      try {
+        const raw = localStorage.getItem('user')
+        const parsed = raw ? JSON.parse(raw) : null
+        let extractedId: any = userIdState ?? (parsed && (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id) ? (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id) : null)
+        const userNameLocal = userName ?? (parsed && (parsed.username || parsed.user?.username || parsed.name || parsed.user?.name) ? (parsed.username || parsed.user?.username || parsed.name || parsed.user?.name) : null)
+        const userIdQuery: any = (extractedId != null && typeof extractedId === 'string' && /^\d+$/.test(extractedId)) ? Number(extractedId) : extractedId
+        if (userIdQuery != null) {
+          try {
+            const { data: byUser, error: byUserErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdQuery).order('id', { ascending: false }).limit(1)
+            if (!byUserErr && Array.isArray(byUser) && byUser.length > 0) caiFetched = byUser[0]
+          } catch (e) { console.debug('refreshCaiInfo: lookup by usuario_id failed:', e) }
+        }
+        if (!caiFetched && userNameLocal) {
+          try {
+            const { data: byName, error: byNameErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameLocal).order('id', { ascending: false }).limit(1)
+            if (!byNameErr && Array.isArray(byName) && byName.length > 0) caiFetched = byName[0]
+          } catch (e) { console.debug('refreshCaiInfo: lookup by cajero failed:', e) }
+        }
+      } catch (e) { console.debug('refreshCaiInfo: error building lookup params', e) }
+      if (caiFetched) {
+        setCaiInfoState(caiFetched)
+        try { localStorage.setItem('caiInfo', JSON.stringify(caiFetched)) } catch (e) {}
+        console.debug('refreshCaiInfo: updated caiInfoState', caiFetched)
+      }
+    } catch (e) {
+      console.debug('refreshCaiInfo: unexpected error', e)
+    }
+  }
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user')
@@ -999,7 +1102,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
                   let fetched: any = null
                   try {
                     if (userIdLocal != null) {
-                      const { data: byUser, error: byUserErr } = await supabase.from('cai').select('id,cai,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdLocal).order('id', { ascending: false }).limit(1)
+                      const { data: byUser, error: byUserErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('usuario_id', userIdLocal).order('id', { ascending: false }).limit(1)
                       if (!byUserErr && Array.isArray(byUser) && byUser.length > 0) fetched = byUser[0]
                     }
                   } catch (e) {
@@ -1007,7 +1110,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
                   }
                   if (!fetched && userNameLocal) {
                     try {
-                      const { data: byName, error: byNameErr } = await supabase.from('cai').select('id,cai,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameLocal).order('id', { ascending: false }).limit(1)
+                      const { data: byName, error: byNameErr } = await supabase.from('cai').select('id,cai,identificador,rango_de,rango_hasta,fecha_vencimiento,secuencia_actual').eq('cajero', userNameLocal).order('id', { ascending: false }).limit(1)
                       if (!byNameErr && Array.isArray(byName) && byName.length > 0) fetched = byName[0]
                     } catch (e) {
                       console.debug('PV: refetch CAI by cajero failed:', e)
@@ -1379,7 +1482,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
         }}
       />
 
-      <DatosFacturaModal open={datosFacturaOpen} onClose={() => setDatosFacturaOpen(false)} caiInfo={caiInfoState} />
+      <DatosFacturaModal open={datosFacturaOpen} onClose={() => setDatosFacturaOpen(false)} caiInfo={caiInfoState} onRefresh={refreshCaiInfo} />
 
     </div>
   );

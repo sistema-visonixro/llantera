@@ -53,11 +53,11 @@ export default function Login({ onLogin }: LoginProps) {
         localStorage.setItem('user', JSON.stringify(toStore))
         try { console.debug('Login: stored localStorage.user =', toStore) } catch (e) {}
         // Si es cajero, intentar cargar CAI más reciente y guardarlo en localStorage.caiInfo
-        try {
+          try {
           if (found.role === 'cajero') {
             const { data: caiRows, error: caiErr } = await supabase
               .from('cai')
-              .select('id, cai, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual')
+              .select('id, cai, identificador, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual')
               .eq('cajero', found.username)
               .order('id', { ascending: false })
               .limit(1)

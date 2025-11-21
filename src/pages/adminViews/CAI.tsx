@@ -6,9 +6,11 @@ import CaiCreateModal from '../../components/CaiCreateModal'
 type CaiRow = {
   id: number
   cai: string
+  identificador?: string | null
   rango_de: string | null
   rango_hasta: string | null
   fecha_vencimiento: string | null
+  secuencia_actual?: string | null
   caja: number | null
   cajero?: string | null
   usuario_id?: number | null
@@ -31,7 +33,7 @@ export default function CAIView() {
     try {
       const { data, error } = await supabase
         .from('cai')
-        .select('id, cai, rango_de, rango_hasta, fecha_vencimiento, caja, cajero, usuario_id')
+        .select('id, cai, identificador, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual, caja, cajero, usuario_id')
         .order('id', { ascending: true })
       if (error) throw error
       setRows(Array.isArray(data) ? data as CaiRow[] : [])
@@ -76,7 +78,7 @@ export default function CAIView() {
     setModalRow(null)
   }
 
-  async function handleModalSave(id: number, payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) {
+  async function handleModalSave(id: number, payload: { cai?: string | null; identificador?: string | null; secuencia_actual?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) {
     setLoading(true)
     setError(null)
     try {
@@ -108,9 +110,11 @@ export default function CAIView() {
             <tr>
               <th>ID</th>
               <th>CAI</th>
+              <th>Identificador</th>
               <th>Rango Desde</th>
               <th>Rango Hasta</th>
               <th>Vencimiento</th>
+              <th>Secuencia actual</th>
               <th>Cajero</th>
               <th>Usuario ID</th>
               <th>Caja</th>
@@ -122,9 +126,11 @@ export default function CAIView() {
               <tr key={r.id}>
                 <td style={{ width: 80 }}>{r.id}</td>
                 <td style={{ minWidth: 200 }}>{r.cai}</td>
+                <td style={{ minWidth: 160 }}>{r.identificador ?? '-'}</td>
                 <td>{r.rango_de}</td>
                 <td>{r.rango_hasta}</td>
                 <td>{r.fecha_vencimiento}</td>
+                <td>{r.secuencia_actual ?? '-'}</td>
                 <td style={{ minWidth: 180 }}>{r.cajero || '-'}</td>
                 <td style={{ minWidth: 160 }}>{r.usuario_id ?? '-'}</td>
                 <td style={{ width: 120 }}>

@@ -4,7 +4,7 @@ type Props = {
   userName?: string | null
   userRole?: string | null
   userId?: number | string | null
-  caiInfo?: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; secuencia_actual?: number | string | null } | null
+  caiInfo?: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; secuencia_actual?: string | null } | null
   onOpenDatosFactura?: () => void
   onLogout: () => void
   onNavigate: (view: string | null) => void

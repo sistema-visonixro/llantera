@@ -6,7 +6,7 @@ type Props = {
   cajeros: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajeros?: Array<{ id: number; username: string; nombre_usuario?: string }>
   availableCajas?: number[]
-  onCreate: (payload: { cai?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) => Promise<void>
+  onCreate: (payload: { cai?: string | null; identificador?: string | null; secuencia_actual?: string | null; rango_de?: string | null; rango_hasta?: string | null; fecha_vencimiento?: string | null; caja?: number | null; cajero?: string | null; usuario_id?: number | null }) => Promise<void>
 }
 
 export default function CaiCreateModal({ open, onClose, cajeros, availableCajeros, availableCajas, onCreate }: Props) {
@@ -18,6 +18,8 @@ export default function CaiCreateModal({ open, onClose, cajeros, availableCajero
   const [rangoDe, setRangoDe] = useState<string>('')
   const [rangoHasta, setRangoHasta] = useState<string>('')
   const [fechaVenc, setFechaVenc] = useState<string>('')
+  const [secuenciaActual, setSecuenciaActual] = useState<string | null>(null)
+  const [identificador, setIdentificador] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,9 +48,11 @@ export default function CaiCreateModal({ open, onClose, cajeros, availableCajero
     try {
       const payload: any = {
         cai: caiValue ?? null,
+        identificador: identificador ?? null,
         rango_de: rangoDe ?? null,
         rango_hasta: rangoHasta ?? null,
         fecha_vencimiento: fechaVenc ?? null,
+        secuencia_actual: secuenciaActual ?? null,
         caja: caja ?? null,
       }
       if (cajeroId != null) {
@@ -76,6 +80,8 @@ export default function CaiCreateModal({ open, onClose, cajeros, availableCajero
           <div>
             <label style={{ display: 'block', marginBottom: 6 }}>CAI</label>
             <input className="input" value={caiValue} onChange={e => setCaiValue(e.target.value)} />
+            <label style={{ display: 'block', marginTop: 8, marginBottom: 6 }}>Identificador</label>
+            <input className="input" value={identificador} onChange={e => setIdentificador(e.target.value)} placeholder="Identificador (opcional)" />
             <label style={{ display: 'block', marginTop: 8, marginBottom: 6 }}>Rango Desde</label>
             <input className="input" value={rangoDe} onChange={e => setRangoDe(e.target.value)} />
             <label style={{ display: 'block', marginTop: 8, marginBottom: 6 }}>Rango Hasta</label>
@@ -85,6 +91,9 @@ export default function CaiCreateModal({ open, onClose, cajeros, availableCajero
           <div>
             <label style={{ display: 'block', marginBottom: 6 }}>Fecha de Vencimiento</label>
             <input className="input" type="date" value={fechaVenc} onChange={e => setFechaVenc(e.target.value)} />
+
+            <label style={{ display: 'block', marginTop: 8, marginBottom: 6 }}>Secuencia actual</label>
+            <input className="input" value={secuenciaActual ?? ''} onChange={e => setSecuenciaActual(e.target.value === '' ? null : e.target.value)} placeholder="0" />
 
             <label style={{ display: 'block', marginTop: 12, marginBottom: 6 }}>Cajero</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
