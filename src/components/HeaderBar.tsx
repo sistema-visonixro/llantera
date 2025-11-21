@@ -1,0 +1,56 @@
+import React, { useState, useRef, useEffect } from 'react'
+
+type Props = {
+  userName?: string | null
+  userRole?: string | null
+  onLogout: () => void
+  onNavigate: (view: string | null) => void
+}
+
+export default function HeaderBar({ userName, userRole, onLogout, onNavigate }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <header style={{
+      background: '#1e293b', color: 'white', padding: '14px 20px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', position: 'relative'
+    }}>
+      <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600 }}>Solutecc  -  Caja</h1>
+      <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+        <div style={{ fontSize: '0.95rem', color: '#e2e8f0', fontWeight: 500 }}>{userName ? `${userName}` : ''}</div>
+        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{userRole ? `${userRole}` : ''}</div>
+      </div>
+
+      <div style={{ position: 'relative' }} ref={ref}>
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          aria-expanded={menuOpen}
+          className="btn-opaque"
+          style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          Menu ▾
+        </button>
+
+        {menuOpen && (
+          <div style={{ position: 'absolute', right: 0, marginTop: 8, background: 'white', color: '#0b1724', borderRadius: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.16)', minWidth: 220, zIndex: 60, overflow: 'hidden' }}>
+            <button onClick={() => { setMenuOpen(false); onLogout() }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Cerrar Sesión</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('DevolucionCaja') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Devolución de caja</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('IngresoEfectivo') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Ingreso de efectivo</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('CotizacionesGuardadas') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Cotizaciones guardadas</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('PedidosEnLinea') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Pedidos en línea</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('CorteCajaParcial') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja parcial</button>
+            <button onClick={() => { setMenuOpen(false); onNavigate('CorteCajaTotal') }} className="btn-opaque" style={{ width: '100%', background: 'transparent', color: '#0b1724', padding: '10px 12px', textAlign: 'left' }}>Corte de caja total</button>
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
