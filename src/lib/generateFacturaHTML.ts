@@ -1,20 +1,104 @@
-export function generateFacturaHTML(
+import getCompanyData from './getCompanyData'
+
+export async function generateFacturaHTML(
 	opts: any = {},
 	tipo: 'factura' | 'cotizacion' = 'factura',
 	params: any = {}
-): string {
-	const comercio = opts.comercio || 'Solutecc - Punto de Ventas'
-	const rtnEmp = opts.rtn || opts.RTN || 'C/F'
-	const direccion = opts.direccion || ''
-	const telefono = opts.telefono || ''
-	const EM = opts.email || opts.EM || ''
-	const factura = opts.factura || String(Math.floor(Math.random() * 900000) + 100000)
-	const CAI = opts.CAI || opts.cai || ''
-	const fechaLimiteEmision = opts.fechaLimiteEmision || opts.fecha_limite_emision || (opts.fecha_vencimiento || '')
-	const rangoAutorizadoDe = opts.rangoAutorizadoDe || opts.rango_desde || ''
-	const rangoAutorizadoHasta = opts.rangoAutorizadoHasta || opts.rango_hasta || ''
+): Promise<string> {
+	let comercio = opts.comercio || ''
+	// `rtnEmp` is the company's RTN; do not use opts.rtn (client RTN) for this
+	let rtnEmp = opts.companyRTN || opts.rtnEmpresa || opts.RTN || ''
+	let direccion = opts.direccion || ''
+	let telefono = opts.telefono || ''
+	let EM = opts.email || opts.EM || ''
+	let logoSrc = opts.logo || opts.logoUrl || opts.logo_src || null
+
+	// Si faltan datos importantes, intentar obtenerlos desde Supabase
+	if ((!comercio || !rtnEmp || !direccion || !telefono || !EM || !logoSrc)) {
+		try {
+			const company = await getCompanyData()
+			if (company) {
+				comercio = comercio || company.nombre || company.comercio || comercio
+				rtnEmp = rtnEmp || company.rtn || rtnEmp
+				direccion = direccion || company.direccion || company.direccion_fiscal || direccion
+				telefono = telefono || company.telefono || company.telefono_fijo || telefono
+				EM = EM || company.email || company.correo || EM
+				logoSrc = logoSrc || (company.logoUrl || company.logo) || logoSrc
+			}
+		} catch (e) {
+			// ignore errors fetching company data
+		}
+	}
+
+	// Intentar incrustar (inline) el logo como data URL para evitar problemas en impresión
+	if (logoSrc && typeof window !== 'undefined' && opts.inlineLogo !== false) {
+		try {
+			if (!String(logoSrc).startsWith('data:')) {
+				const resp = await fetch(String(logoSrc), { mode: 'cors' })
+				if (resp.ok) {
+					const blob = await resp.blob()
+					const dataUrl = await new Promise<string | null>((resolve) => {
+						const reader = new FileReader()
+						reader.onloadend = () => { resolve(typeof reader.result === 'string' ? reader.result : null) }
+						reader.onerror = () => { resolve(null) }
+						reader.readAsDataURL(blob)
+					})
+					if (dataUrl) logoSrc = dataUrl
+				}
+			}
+		} catch (e) {
+			// ignore fetch/convert errors and keep original logoSrc
+		}
+	}
+	let factura = opts.factura || ''
+	let CAI = opts.CAI || opts.cai || ''
+	let fechaLimiteEmision = opts.fechaLimiteEmision || opts.fecha_limite_emision || (opts.fecha_vencimiento || '')
+	let rangoAutorizadoDe = opts.rangoAutorizadoDe || opts.rango_desde || ''
+	let rangoAutorizadoHasta = opts.rangoAutorizadoHasta || opts.rango_hasta || ''
+	let identificador = opts.identificador || opts.identificadorCAI || ''
+
+	// Si no se pasó factura en opts, la intentamos derivar desde CAI info
+	try {
+		let caiInfo: any = opts.caiInfo || null
+		if (!caiInfo && typeof window !== 'undefined') {
+			const raw = window.localStorage.getItem('caiInfo')
+			if (raw) {
+				try { caiInfo = JSON.parse(raw) } catch (e) { caiInfo = null }
+			}
+		}
+		if (caiInfo) {
+			// populate CAI and ranges from caiInfo when available
+			CAI = CAI || caiInfo.cai || caiInfo.CAI || ''
+			fechaLimiteEmision = fechaLimiteEmision || caiInfo.fecha_vencimiento || caiInfo.fecha_limite_emision || ''
+				rangoAutorizadoDe = rangoAutorizadoDe || caiInfo.rango_de || caiInfo.rangoDesde || ''
+				rangoAutorizadoHasta = rangoAutorizadoHasta || caiInfo.rango_hasta || caiInfo.rangoHasta || ''
+				identificador = identificador || caiInfo.identificador || ''
+
+			// compute factura number from identificador + secuencia_actual or rango_de when factura not provided
+			if (!factura) {
+				try {
+					const identificador = caiInfo.identificador ? String(caiInfo.identificador) : ''
+					const seqRaw = caiInfo.secuencia_actual != null ? String(caiInfo.secuencia_actual) : (caiInfo.rango_de != null ? String(caiInfo.rango_de) : '')
+					// strip non-digits for numeric part
+					const numericPart = String(seqRaw).replace(/[^0-9]/g, '') || ''
+					let padWidth = 0
+					if (caiInfo.rango_hasta || caiInfo.rango_de) padWidth = Math.max(String(caiInfo.rango_hasta || caiInfo.rango_de).length, numericPart.length)
+					const padded = numericPart ? String(numericPart).padStart(padWidth || numericPart.length || 1, '0') : ''
+					factura = (identificador || '') + (padded || String(Math.floor(Math.random() * 900000) + 100000))
+				} catch (e) {
+					factura = String(Math.floor(Math.random() * 900000) + 100000)
+				}
+			}
+		}
+	} catch (e) {
+		// ignore cai parsing errors
+	}
+
+	// ensure factura has a value
+	if (!factura) factura = String(Math.floor(Math.random() * 900000) + 100000)
 	const cliente = opts.cliente || (tipo === 'factura' ? 'Consumidor Final' : 'Cotización Cliente')
-	const identidad = opts.identidad || opts.rtnCliente || opts.rtn || 'C/F'
+	// identidad = RTN del cliente (accept legacy `opts.rtn` as client RTN)
+	const identidad = opts.identidad || opts.rtnCliente || opts.clientRTN || opts.rtn || params.identidad || 'C/F'
 	const Ahora = new Date().toLocaleString()
 
 	const carrito = Array.isArray(params.carrito) ? params.carrito : []
@@ -26,14 +110,27 @@ export function generateFacturaHTML(
 	const impuesto = typeof params.isvTotal === 'number' ? params.isvTotal : 0
 	const ISV18 = typeof params.imp18Total === 'number' ? params.imp18Total : 0
 	const isv4 = typeof params.impTouristTotal === 'number' ? params.impTouristTotal : 0
-	const transaccion = subtotal + impuesto + ISV18 + isv4
+	// Determine gross total (totalFactura). Prefer explicit `params.total` if provided,
+	// otherwise compute as subtotal (net) + taxes passed in params.
+	const grossFromParams = typeof params.total === 'number' ? params.total : null
+	const computedGross = subtotal + (impuesto || 0) + (ISV18 || 0) + (isv4 || 0)
+	const transaccion = (grossFromParams != null) ? grossFromParams : computedGross
 	const ft = transaccion
 
 	const pagos = params.pagos || {}
-	const Efectivo = typeof pagos.efectivo === 'number' ? pagos.efectivo : (params.Efectivo || ft)
-	const Tarjeta = typeof pagos.tarjeta === 'number' ? pagos.tarjeta : (params.Tarjeta || 0)
-	const Transferencia = typeof pagos.transferencia === 'number' ? pagos.transferencia : (params.Transferencia || 0)
-	const cambio = typeof params.cambio === 'number' ? params.cambio : (params.Cambio || 0)
+	const Efectivo = typeof pagos.efectivo === 'number' ? pagos.efectivo : (typeof params.Efectivo === 'number' ? params.Efectivo : 0)
+	const Tarjeta = typeof pagos.tarjeta === 'number' ? pagos.tarjeta : (typeof params.Tarjeta === 'number' ? params.Tarjeta : 0)
+	const Transferencia = typeof pagos.transferencia === 'number' ? pagos.transferencia : (typeof params.Transferencia === 'number' ? params.Transferencia : 0)
+	const totalPaid = (typeof pagos.totalPaid === 'number') ? pagos.totalPaid : (Efectivo + Tarjeta + Transferencia)
+	let cambio: number
+	if (typeof pagos.cambio === 'number') {
+		cambio = pagos.cambio
+	} else if (typeof params.cambio === 'number') {
+		cambio = params.cambio
+	} else {
+		const computed = Number(totalPaid) - Number(ft || 0)
+		cambio = isNaN(computed) ? 0 : (computed > 0 ? computed : 0)
+	}
 
 	const buildProductosTabla = () => {
 		return carrito.map((i: any) => {
@@ -48,7 +145,11 @@ export function generateFacturaHTML(
 	}
 
 	const tabla = buildProductosTabla()
-	const letras = numeroALetras(ft)
+
+	// Calcular Total Pagado mostrado: efectivo + transferencia + tarjeta - cambio
+	const totalPagadoCalcRaw = (Number(Efectivo) || 0) + (Number(Transferencia) || 0) + (Number(Tarjeta) || 0) - (Number(cambio) || 0)
+	const totalPagadoCalc = isNaN(totalPagadoCalcRaw) ? 0 : totalPagadoCalcRaw
+	const letras = numeroALetras(totalPagadoCalc)
 
 	const htmlOutput = `<!DOCTYPE html>
 <html lang="es">
@@ -79,7 +180,7 @@ export function generateFacturaHTML(
 <body>
 	<div class="factura">
 		<div class="factura-header">
-			<img src="https://i.imgur.com/Tt5yzy0.jpeg" alt="Logo" />
+			<img src="${logoSrc}" alt="Logo" />
 			<h2 class="titulo">FACTURA</h2>
 		</div>
 		<hr />
@@ -93,7 +194,7 @@ export function generateFacturaHTML(
 		<p>Factura No: ${factura}</p>
 		<p>CAI: ${CAI}</p>
 		<p>Fecha límite de emisión: ${fechaLimiteEmision}</p>
-		<p>Rango autorizado: ${rangoAutorizadoDe} al ${rangoAutorizadoHasta}</p>
+		<p>Rango autorizado: ${identificador ? (identificador + ' ' + rangoAutorizadoDe + ' al ' + identificador + ' ' + rangoAutorizadoHasta) : (rangoAutorizadoDe + ' al ' + rangoAutorizadoHasta)}</p>
 		<hr />
 		<p>Cliente: ${cliente}</p>
 		<p>RTN Cliente: ${identidad}</p>
@@ -130,7 +231,7 @@ export function generateFacturaHTML(
 		</div>
 		<hr />
 		<div class="letr">
-			<p>Total Pagado: L ${ft.toFixed(2)}</p>
+			<p>Total Pagado: L ${totalPagadoCalc.toFixed(2)}</p>
 			<p>*** ${letras} Lempiras ***</p>
 		</div>
 		<hr />
@@ -144,12 +245,7 @@ export function generateFacturaHTML(
 			<h5>¡LA FACTURA ES BENEFICIO DE TODOS EXÍJALA!</h5>
 		</div>
 	</div>
-	<script>
-		window.onload = function () {
-			window.print();
-			setTimeout(function () { window.close(); }, 1000);
-		};
-	</script>
+
 </body>
 </html>`
 

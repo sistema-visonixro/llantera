@@ -62,12 +62,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     (categoriaFiltro === 'Todas' || p.categoria === categoriaFiltro)
   );
 
-  const subtotal = carrito.reduce((sum, item) => sum + (Number(item.producto.precio || 0) * item.cantidad), 0);
-  // Compute taxes per-item following rules:
-  // - if exento => no taxes
-  // - else if aplica_impuesto_18 => base tax comes from tax18Rate (id=2) and counts towards 'Impuesto 18%'
-  // - else => base tax comes from taxRate (id=1) and counts towards 'ISV'
-  // - tourist tax (taxTouristRate, id=3) is additive when aplica_impuesto_turistico is true
+  const grossTotal = carrito.reduce((sum, item) => sum + (Number(item.producto.precio || 0) * item.cantidad), 0);
+  // Compute taxes as included in the item price (price includes taxes).
+  // For each item, extract the tax portion: taxAmount = price - price / (1 + combinedRate)
+  // Then split the taxAmount between main tax (ISV 15% or 18%) and tourist tax proportionally.
   let isvTotal = 0
   let imp18Total = 0
   let impTouristTotal = 0
@@ -76,21 +74,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const exento = Boolean(item.producto.exento)
     const aplica18 = Boolean((item.producto as any).aplica_impuesto_18)
     const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico)
-    // debug per-item
-    // console.debug('PV: tax calc item', { id: item.producto.id, price, exento, aplica18, aplicaTur, taxRate, tax18Rate, taxTouristRate })
     if (exento) continue
+    const mainRate = aplica18 ? (tax18Rate || 0) : (taxRate || 0)
+    const turRate = aplicaTur ? (taxTouristRate || 0) : 0
+    const combined = (Number(mainRate) || 0) + (Number(turRate) || 0)
+    if (combined <= 0) continue
+    const taxAmount = price - (price / (1 + combined))
+    // split taxAmount proportionally
     if (aplica18) {
-      const base = price * (tax18Rate || 0)
-      imp18Total += base
+      imp18Total += taxAmount * (mainRate / combined)
     } else {
-      const base = price * (taxRate || 0)
-      isvTotal += base
+      isvTotal += taxAmount * (mainRate / combined)
     }
     if (aplicaTur) {
-      impTouristTotal += price * (taxTouristRate || 0)
+      impTouristTotal += taxAmount * (turRate / combined)
     }
   }
-  const total = subtotal + isvTotal + imp18Total + impTouristTotal
+  // total is the gross total (prices include taxes); subtotal (net) is gross minus extracted taxes
+  const total = grossTotal
+  const subtotal = Math.max(0, grossTotal - (isvTotal + imp18Total + impTouristTotal))
   // Per-item tax breakdown for UI/debugging
   const perItemTaxes = carrito.map(item => {
     const price = Number(item.producto.precio || 0) * item.cantidad
@@ -98,10 +100,15 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const aplica18 = Boolean((item.producto as any).aplica_impuesto_18)
     const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico)
     if (exento) return { id: item.producto.id, nombre: item.producto.nombre, price, isv: 0, imp18: 0, tur: 0, totalTax: 0 }
-    const isv = aplica18 ? 0 : price * (taxRate || 0)
-    const imp18 = aplica18 ? price * (tax18Rate || 0) : 0
-    const tur = aplicaTur ? price * (taxTouristRate || 0) : 0
-    return { id: item.producto.id, nombre: item.producto.nombre, price, isv, imp18, tur, totalTax: isv + imp18 + tur }
+    const mainRate = aplica18 ? (tax18Rate || 0) : (taxRate || 0)
+    const turRate = aplicaTur ? (taxTouristRate || 0) : 0
+    const combined = (Number(mainRate) || 0) + (Number(turRate) || 0)
+    if (combined <= 0) return { id: item.producto.id, nombre: item.producto.nombre, price, isv: 0, imp18: 0, tur: 0, totalTax: 0 }
+    const taxAmount = price - (price / (1 + combined))
+    const isvPart = aplica18 ? 0 : taxAmount * (mainRate / combined)
+    const imp18Part = aplica18 ? taxAmount * (mainRate / combined) : 0
+    const turPart = aplicaTur ? taxAmount * (turRate / combined) : 0
+    return { id: item.producto.id, nombre: item.producto.nombre, price, isv: isvPart, imp18: imp18Part, tur: turPart, totalTax: isvPart + imp18Part + turPart }
   })
 
   const agregarAlCarrito = (producto: Producto) => {
@@ -339,7 +346,28 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
   // generateFacturaHTML moved to src/lib/generateFacturaHTML.ts
 
-  const subtotalCalc = () => carrito.reduce((s, it) => s + (Number(it.producto.precio || 0) * it.cantidad), 0)
+  const subtotalCalc = () => {
+    const gross = carrito.reduce((s, it) => s + (Number(it.producto.precio || 0) * it.cantidad), 0)
+    let isv = 0
+    let imp18 = 0
+    let tur = 0
+    for (const item of carrito) {
+      const price = Number(item.producto.precio || 0) * item.cantidad
+      const exento = Boolean(item.producto.exento)
+      const aplica18 = Boolean((item.producto as any).aplica_impuesto_18)
+      const aplicaTur = Boolean((item.producto as any).aplica_impuesto_turistico)
+      if (exento) continue
+      const mainRate = aplica18 ? (tax18Rate || 0) : (taxRate || 0)
+      const turRate = aplicaTur ? (taxTouristRate || 0) : 0
+      const combined = (Number(mainRate) || 0) + (Number(turRate) || 0)
+      if (combined <= 0) continue
+      const taxAmount = price - (price / (1 + combined))
+      if (aplica18) imp18 += taxAmount * (mainRate / combined)
+      else isv += taxAmount * (mainRate / combined)
+      if (aplicaTur) tur += taxAmount * (turRate / combined)
+    }
+    return Math.max(0, gross - (isv + imp18 + tur))
+  }
   const taxableSubtotalCalc = () => carrito.reduce((s, it) => s + ((it.producto.exento ? 0 : (Number(it.producto.precio || 0) * it.cantidad))), 0)
 
   const doFacturaClienteFinal = async () => {
@@ -375,7 +403,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
   // finalize factura: mark cotizacion, insert venta, print
   const finalizeFacturaForCliente = async (cliente: string, rtn: string, paymentPayload: any) => {
-    const html = generateFacturaHTML({ cliente, rtn }, printingMode, {
+    const html = await generateFacturaHTML({ cliente, rtn }, printingMode, {
       carrito,
       subtotal: subtotalCalc(),
       isvTotal,
@@ -383,7 +411,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       impTouristTotal,
       taxRate,
       tax18Rate,
-      taxTouristRate
+      taxTouristRate,
+      total: total,
+      pagos: paymentPayload
     })
 
     // Si estamos facturando desde una cotización en edición, marcarla primero
@@ -442,12 +472,52 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // imprimir
+    // imprimir: abrir ventana, esperar a que imágenes carguen y luego imprimir
     const w = window.open('', '_blank')
     if (w) {
       w.document.open(); w.document.write(html); w.document.close()
-      try { w.focus(); w.print() } catch (e) { console.warn('Error during print (finalize):', e) }
-      setTimeout(() => { try { w.close() } catch (e) {} }, 800)
+      const printWhenReady = () => {
+        try { w.focus(); w.print() } catch (e) { console.warn('Error during print (finalize):', e) }
+        setTimeout(() => { try { w.close() } catch (e) {} }, 800)
+      }
+
+      const tryPrint = () => {
+        try {
+          const imgs = w.document.images
+          if (imgs && imgs.length > 0) {
+            let loaded = 0
+            for (let i = 0; i < imgs.length; i++) {
+              const img = imgs[i] as HTMLImageElement
+              if (img.complete) {
+                loaded++
+              } else {
+                img.addEventListener('load', () => { loaded++; if (loaded === imgs.length) printWhenReady() })
+                img.addEventListener('error', () => { loaded++; if (loaded === imgs.length) printWhenReady() })
+              }
+            }
+            if (loaded === imgs.length) printWhenReady()
+          } else {
+            printWhenReady()
+          }
+        } catch (e) {
+          // Fallback: esperar al evento load de la ventana y/o un timeout
+          try {
+            w.addEventListener('load', printWhenReady)
+          } catch (e) {}
+          setTimeout(printWhenReady, 1000)
+        }
+      }
+
+      try {
+        if (w.document.readyState === 'complete') {
+          tryPrint()
+        } else {
+          w.addEventListener('load', tryPrint)
+          setTimeout(tryPrint, 1500)
+        }
+      } catch (e) {
+        setTimeout(tryPrint, 800)
+      }
     }
 
     // post-print cleanup
@@ -780,7 +850,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
       console.warn('Error upsert cliente:', e)
     }
 
-    const html = generateFacturaHTML({ cliente: clienteNombre || 'Cliente', rtn: clienteRTN || '' }, printingMode, {
+    const html = await generateFacturaHTML({ cliente: clienteNombre || 'Cliente', rtn: clienteRTN || '' }, printingMode, {
       carrito,
       subtotal: subtotalCalc(),
       isvTotal,
@@ -788,7 +858,9 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
       impTouristTotal,
       taxRate,
       tax18Rate,
-      taxTouristRate
+      taxTouristRate,
+      total: total,
+      pagos: paymentInfo
     })
 
     if (printingMode === 'factura' && cotizacionEditId) {
@@ -851,8 +923,47 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
     const w = window.open('', '_blank')
     if (w) {
       w.document.open(); w.document.write(html); w.document.close()
-      try { w.focus(); w.print() } catch (e) { console.warn('Error during print (cliente normal):', e) }
-      setTimeout(() => { try { w.close() } catch (e) {} }, 800)
+      const printWhenReady = () => {
+        try { w.focus(); w.print() } catch (e) { console.warn('Error during print (cliente normal):', e) }
+        setTimeout(() => { try { w.close() } catch (e) {} }, 800)
+      }
+
+      const tryPrint = () => {
+        try {
+          const imgs = w.document.images
+          if (imgs && imgs.length > 0) {
+            let loaded = 0
+            for (let i = 0; i < imgs.length; i++) {
+              const img = imgs[i] as HTMLImageElement
+              if (img.complete) {
+                loaded++
+              } else {
+                img.addEventListener('load', () => { loaded++; if (loaded === imgs.length) printWhenReady() })
+                img.addEventListener('error', () => { loaded++; if (loaded === imgs.length) printWhenReady() })
+              }
+            }
+            if (loaded === imgs.length) printWhenReady()
+          } else {
+            printWhenReady()
+          }
+        } catch (e) {
+          try {
+            w.addEventListener('load', printWhenReady)
+          } catch (e) {}
+          setTimeout(printWhenReady, 1000)
+        }
+      }
+
+      try {
+        if (w.document.readyState === 'complete') {
+          tryPrint()
+        } else {
+          w.addEventListener('load', tryPrint)
+          setTimeout(tryPrint, 1500)
+        }
+      } catch (e) {
+        setTimeout(tryPrint, 800)
+      }
     }
     const afterFinish = async () => {
       if (printingMode === 'factura') {
