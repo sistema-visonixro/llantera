@@ -761,6 +761,68 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
     if (detErr) {
       throw detErr
     }
+    // Registrar salidas en `registro_de_inventario` por cada detalle (SALIDA)
+    try {
+      const referenciaText = `venta: ${facturaNum}`
+      let usuarioText = userName || 'sistema'
+      try {
+        const rawU = localStorage.getItem('user')
+        if (rawU) {
+          const pu = JSON.parse(rawU)
+          usuarioText = pu && (pu.username || pu.user?.username || pu.name || pu.user?.name) ? (pu.username || pu.user?.username || pu.name || pu.user?.name) : String(pu)
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      const now = new Date().toISOString()
+      const registroRows = detalles.map((d: any) => ({
+        producto_id: d.producto_id,
+        cantidad: d.cantidad,
+        tipo_de_movimiento: 'SALIDA',
+        referencia: referenciaText,
+        usuario: usuarioText,
+        fecha_salida: now
+      }))
+
+      if (registroRows.length > 0) {
+        const { data: regIns, error: regErr } = await supabase.from('registro_de_inventario').insert(registroRows).select('id')
+        if (regErr) console.warn('Error registrando salida en registro_de_inventario:', regErr)
+        else console.debug('Registro_de_inventario inserciones (salida):', regIns)
+      }
+    } catch (e) {
+      console.warn('Excepción registrando salidas en registro_de_inventario:', e)
+    }
+    // Actualizar stock en tabla `inventario`: restar cantidades vendidas por producto
+    try {
+      // agrupar cantidades por producto para evitar múltiples updates por el mismo producto
+      const qtyByProduct: Record<string, number> = {}
+      for (const d of detalles) {
+        const pid = String(d.producto_id)
+        const qty = Number(d.cantidad || 0)
+        if (!qtyByProduct[pid]) qtyByProduct[pid] = 0
+        qtyByProduct[pid] += qty
+      }
+
+      for (const pid of Object.keys(qtyByProduct)) {
+        try {
+          const need = Number(qtyByProduct[pid] || 0)
+          if (need <= 0) continue
+          // obtener stock actual
+          const { data: prodRow, error: prodErr } = await supabase.from('inventario').select('stock').eq('id', pid).maybeSingle()
+          if (prodErr) { console.warn('Error leyendo stock de inventario para producto', pid, prodErr); continue }
+          const currentStock = prodRow && prodRow.stock != null ? Number(prodRow.stock) : 0
+          const newStock = Math.max(0, currentStock - need)
+          const { error: updErr } = await supabase.from('inventario').update({ stock: newStock }).eq('id', pid)
+          if (updErr) console.warn('Error actualizando stock para producto', pid, updErr)
+          else console.debug('Stock actualizado para producto', pid, 'de', currentStock, 'a', newStock)
+        } catch (ee) {
+          console.warn('Excepción actualizando stock para producto', pid, ee)
+        }
+      }
+    } catch (e) {
+      console.warn('Excepción agregada en proceso de actualización de stock:', e)
+    }
     // insertar pagos relacionados (si existen en paymentPayload.pagos)
     try {
       if (paymentPayload && Array.isArray(paymentPayload.pagos) && paymentPayload.pagos.length > 0) {
@@ -827,6 +889,11 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
       } catch (e) {
         console.debug('Exception updating cai.secuencia_actual:', e)
       }
+    }
+    try {
+      await refreshProducts()
+    } catch (e) {
+      console.debug('refreshProducts after insertVenta failed', e)
     }
     return ventaId
   }
@@ -1086,82 +1153,77 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
         console.warn('Error cargando inventario:', err)
       })
   }, [])
-
+  
   // Load products from DB: inventario + precios + registro_de_inventario
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico')
-        if (invErr) throw invErr
-        const invRows = Array.isArray(invData) ? invData : []
-        const ids = invRows.map((r: any) => String(r.id))
+  const refreshProducts = async () => {
+    try {
+      const { data: invData, error: invErr } = await supabase.from('inventario').select('id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico')
+      if (invErr) throw invErr
+      const invRows = Array.isArray(invData) ? invData : []
+      const ids = invRows.map((r: any) => String(r.id))
 
-        if (ids.length === 0) {
-          if (mounted) setProductos([])
-          return
-        }
-
-        // prices: fetch all price rows and build a map, avoids type-mismatch on .in()
-        const priceMap: Record<string, number> = {}
-        try {
-          const { data: prices, error: pricesErr } = await supabase.from('precios').select('producto_id, precio').order('id', { ascending: false })
-          if (pricesErr) throw pricesErr
-          console.debug('PV: precios total rows', Array.isArray(prices) ? prices.length : 0)
-          if (Array.isArray(prices)) {
-            for (const p of prices) {
-              const pid = String((p as any).producto_id)
-              if (!priceMap[pid]) priceMap[pid] = Number((p as any).precio || 0)
-            }
-          }
-        } catch (e) {
-          console.warn('Error cargando precios en PV:', e)
-        }
-
-        // stock from registro_de_inventario
-        let stockMap: Record<string, number> = {}
-        try {
-          const { data: regData, error: regErr } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
-          if (regErr) throw regErr
-          const regRows = Array.isArray(regData) ? regData : []
-          stockMap = {}
-          ids.forEach(id => stockMap[id] = 0)
-          for (const r of regRows) {
-            const pid = String((r as any).producto_id)
-            const qty = Number((r as any).cantidad) || 0
-            const tipo = String((r as any).tipo_de_movimiento || '').toUpperCase()
-            if (tipo === 'ENTRADA') stockMap[pid] = (stockMap[pid] || 0) + qty
-            else if (tipo === 'SALIDA') stockMap[pid] = (stockMap[pid] || 0) - qty
-          }
-        } catch (e) {
-          console.warn('Error cargando registro_de_inventario en PV:', e)
-          // initialize zero stock map to avoid crashes
-          stockMap = {}
-          ids.forEach(id => stockMap[id] = 0)
-        }
-
-        console.debug('PV: priceMap sample', Object.keys(priceMap).slice(0,5).map(k=>[k, priceMap[k]]))
-        const products: Producto[] = invRows.map((r: any) => ({
-          id: String(r.id),
-          sku: r.sku,
-          nombre: r.nombre,
-          categoria: r.categoria,
-          imagen: r.imagen,
-          precio: (priceMap[String(r.id)] !== undefined ? priceMap[String(r.id)] : (r.precio !== undefined ? Number(r.precio) : 0)),
-          exento: (r.exento === true || String(r.exento) === 'true' || Number(r.exento) === 1) || false,
-          aplica_impuesto_18: (r.aplica_impuesto_18 === true || String(r.aplica_impuesto_18) === 'true' || Number(r.aplica_impuesto_18) === 1) || false,
-          aplica_impuesto_turistico: (r.aplica_impuesto_turistico === true || String(r.aplica_impuesto_turistico) === 'true' || Number(r.aplica_impuesto_turistico) === 1) || false,
-          stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
-        }))
-
-        if (mounted) setProductos(products)
-      } catch (e) {
-        console.warn('Error cargando productos desde inventario:', e)
-        if (mounted) setProductos([])
+      if (ids.length === 0) {
+        setProductos([])
+        return
       }
-    })()
-    return () => { mounted = false }
-  }, [])
+
+      // prices: fetch all price rows and build a map, avoids type-mismatch on .in()
+      const priceMap: Record<string, number> = {}
+      try {
+        const { data: prices, error: pricesErr } = await supabase.from('precios').select('producto_id, precio').order('id', { ascending: false })
+        if (pricesErr) throw pricesErr
+        if (Array.isArray(prices)) {
+          for (const p of prices) {
+            const pid = String((p as any).producto_id)
+            if (!priceMap[pid]) priceMap[pid] = Number((p as any).precio || 0)
+          }
+        }
+      } catch (e) {
+        console.warn('Error cargando precios en PV:', e)
+      }
+
+      // stock from registro_de_inventario
+      let stockMap: Record<string, number> = {}
+      try {
+        const { data: regData, error: regErr } = await supabase.from('registro_de_inventario').select('producto_id, cantidad, tipo_de_movimiento').in('producto_id', ids)
+        if (regErr) throw regErr
+        const regRows = Array.isArray(regData) ? regData : []
+        stockMap = {}
+        ids.forEach(id => stockMap[id] = 0)
+        for (const r of regRows) {
+          const pid = String((r as any).producto_id)
+          const qty = Number((r as any).cantidad) || 0
+          const tipo = String((r as any).tipo_de_movimiento || '').toUpperCase()
+          if (tipo === 'ENTRADA') stockMap[pid] = (stockMap[pid] || 0) + qty
+          else if (tipo === 'SALIDA') stockMap[pid] = (stockMap[pid] || 0) - qty
+        }
+      } catch (e) {
+        console.warn('Error cargando registro_de_inventario en PV:', e)
+        stockMap = {}
+        ids.forEach(id => stockMap[id] = 0)
+      }
+
+      const products: Producto[] = invRows.map((r: any) => ({
+        id: String(r.id),
+        sku: r.sku,
+        nombre: r.nombre,
+        categoria: r.categoria,
+        imagen: r.imagen,
+        precio: (priceMap[String(r.id)] !== undefined ? priceMap[String(r.id)] : (r.precio !== undefined ? Number(r.precio) : 0)),
+        exento: (r.exento === true || String(r.exento) === 'true' || Number(r.exento) === 1) || false,
+        aplica_impuesto_18: (r.aplica_impuesto_18 === true || String(r.aplica_impuesto_18) === 'true' || Number(r.aplica_impuesto_18) === 1) || false,
+        aplica_impuesto_turistico: (r.aplica_impuesto_turistico === true || String(r.aplica_impuesto_turistico) === 'true' || Number(r.aplica_impuesto_turistico) === 1) || false,
+        stock: Number((stockMap[String(r.id)] || 0).toFixed(2))
+      }))
+
+      setProductos(products)
+    } catch (e) {
+      console.warn('Error cargando productos desde inventario:', e)
+      setProductos([])
+    }
+  }
+
+  useEffect(() => { let mounted = true; refreshProducts().catch(e=>{ if (mounted) console.warn('refreshProducts error', e) }); return ()=>{ mounted = false } }, [])
 
   // Si hay una cotización para cargar desde otra vista, cargarla en el carrito
   useEffect(() => {
