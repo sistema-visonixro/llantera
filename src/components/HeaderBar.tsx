@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import getCompanyData from '../lib/getCompanyData'
 
 type Props = {
   userName?: string | null
@@ -15,6 +16,8 @@ type Props = {
 export default function HeaderBar({ userName, userRole, userId, caiInfo, onOpenDatosFactura, onLogout, onNavigate, onPrintFormatChange, printFormat }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
+  const [companyName, setCompanyName] = useState<string | null>(null)
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false)
@@ -23,12 +26,36 @@ export default function HeaderBar({ userName, userRole, userId, caiInfo, onOpenD
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const company = await getCompanyData()
+        if (!mounted || !company) return
+        const name = company.nombre || company.comercio || company.name || null
+        const logo = company.logoUrl || company.logo || null
+        if (name) setCompanyName(String(name))
+        if (logo) setCompanyLogo(String(logo))
+      } catch (e) {
+        // ignore
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
   return (
     <header style={{
       background: '#1e293b', color: 'white', padding: '14px 20px',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', position: 'relative'
     }}>
-      <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600 }}>Solutecc  -  Caja</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {companyLogo ? (
+          <img src={companyLogo} alt="logo" style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 6 }} />
+        ) : null}
+        <div style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
+          {companyName ? companyName : 'Punto de Ventas'}
+        </div>
+      </div>
       <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
         <div style={{ fontSize: '0.95rem', color: '#e2e8f0', fontWeight: 500 }}>{userName ? `${userName}` : ''}</div>
         <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{userRole ? `${userRole}` : ''}</div>

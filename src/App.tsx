@@ -1,5 +1,6 @@
 import './App.css'
 import { useState, useEffect } from 'react'
+import getCompanyData from './lib/getCompanyData'
 import Login from './pages/Login'
 import PuntoDeVentas from './pages/PuntoDeVentas'
 import PanelAdmin from './pages/PanelAdmin'
@@ -14,6 +15,36 @@ function App() {
     } catch {
       setUser(null)
     }
+  }, [])
+
+  // Obtener datos de la empresa para mostrar nombre y logo en la pestaña
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const company = await getCompanyData()
+        if (!mounted || !company) return
+        const name = company.nombre || company.comercio || company.name || ''
+        if (name) document.title = String(name)
+        const logoUrl = company.logoUrl || company.logo || null
+        if (logoUrl) {
+          try {
+            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+            if (!link) {
+              link = document.createElement('link')
+              link.rel = 'icon'
+              document.getElementsByTagName('head')[0].appendChild(link)
+            }
+            link.href = String(logoUrl)
+          } catch (e) {
+            // ignore
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    })()
+    return () => { mounted = false }
   }, [])
 
   function handleLogin() {
