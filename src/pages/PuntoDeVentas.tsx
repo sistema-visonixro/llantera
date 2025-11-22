@@ -54,6 +54,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [taxRate, setTaxRate] = useState<number>(0.15) // default ISV 15%
   const [tax18Rate, setTax18Rate] = useState<number>(0) // default 0.18 (18%)
   const [taxTouristRate, setTaxTouristRate] = useState<number>(0) // default 0.04 (4%)
+  const [exchangeRate, setExchangeRate] = useState<number>(26.27)
 
   const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))]
 
@@ -1525,6 +1526,10 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 13, color: '#333' }}>Tipo de cambio Lps/$</label>
+            <input type="number" min={0} step="0.01" value={exchangeRate} onChange={e => { const v = Number(e.target.value || 0); setExchangeRate(Number(v.toFixed ? Number(v.toFixed(2)) : v)) }} style={{ width: 120, padding: '8px 10px', borderRadius: 8, border: '1px solid #cbd5e1' }} />
+          </div>
         </div>
 
         {/* Layout de 2 columnas: Tabla + Carrito */}
@@ -1567,7 +1572,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
       <LocationModal open={modalOpen} selectedEntrada={selectedEntrada} onClose={() => { setModalOpen(false); setSelectedEntrada(null) }} imageUrls={imageUrls} />
 
       {/* Payment modal component (independent) */}
-      <PaymentModal open={paymentModalOpen} totalDue={total} onClose={() => setPaymentModalOpen(false)} onConfirm={async (p) => {
+      <PaymentModal open={paymentModalOpen} totalDue={total} exchangeRate={exchangeRate} onClose={() => setPaymentModalOpen(false)} onConfirm={async (p) => {
         setPaymentInfo(p)
         setPaymentDone(true)
         // si se abrió para facturar inmediatamente (cliente final), proceder a facturar

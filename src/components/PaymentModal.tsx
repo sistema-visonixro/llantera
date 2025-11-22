@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react'
 
 type PagoItem = {
   id: string
-  tipo: 'efectivo' | 'tarjeta' | 'transferencia'
+  tipo: 'efectivo' | 'tarjeta' | 'transferencia' | 'dolares'
   monto: number
+  usd_monto?: number
   banco?: string
   tarjeta?: string
   factura?: string
@@ -20,16 +21,17 @@ type PaymentPayload = {
   pagos?: PagoItem[]
 }
 
-export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
-  { open: boolean, onClose: () => void, totalDue: number, onConfirm: (p: PaymentPayload) => void }) {
+export default function PaymentModal({ open, onClose, totalDue, onConfirm, exchangeRate }:
+  { open: boolean, onClose: () => void, totalDue: number, onConfirm: (p: PaymentPayload) => void, exchangeRate: number }) {
   const [pagos, setPagos] = useState<PagoItem[]>([])
-  const [tipo, setTipo] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo')
+  const [tipo, setTipo] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'dolares'>('efectivo')
   const [monto, setMonto] = useState<number>(0)
   const [banco, setBanco] = useState<string>('')
   const [tarjeta, setTarjeta] = useState<string>('')
   const [factura, setFactura] = useState<string>('')
   const [autorizador, setAutorizador] = useState<string>('')
   const [referencia, setReferencia] = useState<string>('')
+  const [usdAmount, setUsdAmount] = useState<number>(0)
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +59,7 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
       id: String(Date.now()) + Math.random().toString(36).slice(2, 7),
       tipo,
       monto: montoN,
+      usd_monto: tipo === 'dolares' ? Number((usdAmount || 0).toFixed(2)) : undefined,
       banco: banco || undefined,
       tarjeta: tarjeta || undefined,
       factura: factura || undefined,
@@ -75,8 +78,9 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
   const efectivoSum = pagos.filter(p => p.tipo === 'efectivo').reduce((s, p) => s + p.monto, 0)
   const tarjetaSum = pagos.filter(p => p.tipo === 'tarjeta').reduce((s, p) => s + p.monto, 0)
   const transferenciaSum = pagos.filter(p => p.tipo === 'transferencia').reduce((s, p) => s + p.monto, 0)
+  const dolaresSum = pagos.filter(p => p.tipo === 'dolares').reduce((s, p) => s + p.monto, 0)
 
-  const totalPaid = Number((efectivoSum + tarjetaSum + transferenciaSum).toFixed(2))
+  const totalPaid = Number((efectivoSum + tarjetaSum + transferenciaSum + dolaresSum).toFixed(2))
   const remaining = Number((totalDue - totalPaid).toFixed(2))
   const canConfirm = totalPaid >= totalDue && totalPaid > 0
 
@@ -95,19 +99,19 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000 }}>
-      <div style={{ width: 900, maxWidth: '98%', background: 'white', borderRadius: 10, padding: 20, maxHeight: '90vh', overflow: 'auto' }}>
+      <div style={{ width: 1100, maxWidth: '99%', background: 'white', borderRadius: 10, padding: 16, maxHeight: '94vh', overflow: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>Registrar Pago</h3>
           <button onClick={onClose} className="btn-opaque">Cerrar</button>
         </div>
 
-        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16 }}>
+        <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 420px', gap: 14, fontSize: 13 }}>
           {/* izquierda: mini tabla de pagos y totales */}
           <div>
             <div style={{ marginBottom: 8 }}>Total a pagar: <strong>{currency(totalDue)}</strong></div>
 
-            <div style={{ border: '1px solid #e6edf3', borderRadius: 8, padding: 8, marginBottom: 12 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ border: '1px solid #e6edf3', borderRadius: 8, padding: 6, marginBottom: 12, fontSize: 13 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ textAlign: 'left', borderBottom: '1px solid #efefef' }}>
                     <th>Tipo</th>
@@ -122,9 +126,9 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
                   )}
                   {pagos.map(p => (
                     <tr key={p.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                      <td style={{ padding: '8px 4px' }}>{p.tipo}</td>
-                      <td style={{ padding: '8px 4px' }}>{currency(p.monto)}</td>
-                      <td style={{ padding: '8px 4px', fontSize: 12 }}>
+                      <td style={{ padding: '6px 4px' }}>{p.tipo}</td>
+                      <td style={{ padding: '6px 4px' }}>{currency(p.monto)}</td>
+                      <td style={{ padding: '6px 4px', fontSize: 12 }}>
                         {p.tipo === 'efectivo' && <span>—</span>}
                         {p.tipo === 'tarjeta' && <span>{p.banco || '-'} / {p.tarjeta || '-'} / {p.factura || '-'}</span>}
                         {p.tipo === 'transferencia' && <span>{p.banco || '-'} / {p.referencia || '-'}</span>}
@@ -136,16 +140,16 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
               </table>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-              <div style={{ padding: 8, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 8, fontSize: 13 }}>
+              <div style={{ padding: 6, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
                 <div style={{ fontSize: 12, color: '#666' }}>Efectivo</div>
                 <div style={{ fontWeight: 600 }}>{currency(efectivoSum)}</div>
               </div>
-              <div style={{ padding: 8, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
+              <div style={{ padding: 6, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
                 <div style={{ fontSize: 12, color: '#666' }}>Tarjeta</div>
                 <div style={{ fontWeight: 600 }}>{currency(tarjetaSum)}</div>
               </div>
-              <div style={{ padding: 8, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
+              <div style={{ padding: 6, borderRadius: 6, border: '1px solid #e6edf3', minWidth: 140 }}>
                 <div style={{ fontSize: 12, color: '#666' }}>Transferencia</div>
                 <div style={{ fontWeight: 600 }}>{currency(transferenciaSum)}</div>
               </div>
@@ -158,20 +162,49 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
           </div>
 
           {/* derecha: formulario para agregar pago */}
-          <div style={{ border: '1px solid #e6edf3', borderRadius: 8, padding: 12 }}>
+          <div style={{ border: '1px solid #e6edf3', borderRadius: 8, padding: 10, fontSize: 13 }}>
             <div style={{ marginBottom: 8 }}>
               <label style={{ display: 'block', marginBottom: 6 }}>Tipo de pago</label>
-              <select value={tipo} onChange={e => setTipo(e.target.value as any)} style={{ width: '100%', padding: 8, borderRadius: 6 }}>
+              <select value={tipo} onChange={e => { setTipo(e.target.value as any); setMonto(0); setUsdAmount(0); setBanco(''); setTarjeta(''); setFactura(''); setAutorizador(''); setReferencia('') }} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }}>
                 <option value="efectivo">Efectivo</option>
                 <option value="tarjeta">Tarjeta</option>
                 <option value="transferencia">Transferencia</option>
+                <option value="dolares">Dólares</option>
               </select>
             </div>
 
             <div style={{ marginBottom: 8 }}>
               <label style={{ display: 'block', marginBottom: 6 }}>Monto</label>
-              <input type="number" min={0} step="0.01" value={monto} onChange={e => setMonto(parseNumber(e.target.value))} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+              {tipo === 'dolares' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 6 }}>$</label>
+                    <input type="number" min={0} step="0.01" value={usdAmount} onChange={e => {
+                      const v = parseNumber(e.target.value)
+                      setUsdAmount(v)
+                      const converted = Number((v * exchangeRate).toFixed(2))
+                      setMonto(converted)
+                    }} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 6 }}>L (convertido)</label>
+                    <input type="number" min={0} step="0.01" value={monto} readOnly style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13, background: '#f9fafb' }} />
+                  </div>
+                </div>
+              ) : (
+                <input type="number" min={0} step="0.01" value={monto} onChange={e => setMonto(parseNumber(e.target.value))} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
+              )}
             </div>
+
+            {tipo === 'dolares' && (
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ display: 'block', marginBottom: 6 }}>Tipo de cambio (Lps por $)</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{exchangeRate.toFixed(2)} L</div>
+                  <div style={{ fontSize: 13, color: '#666' }}>&nbsp;(Editable en el encabezado de Punto de Ventas)</div>
+                </div>
+              </div>
+            )}
 
             {tipo === 'efectivo' && (
               <div style={{ fontSize: 13, color: '#444', marginBottom: 8 }}>Pago en efectivo: solo indique el monto y presione "Agregar".</div>
@@ -181,20 +214,35 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
               <>
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 6 }}>Banco</label>
-                  <input value={banco} onChange={e => setBanco(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                  <select value={banco} onChange={e => setBanco(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }}>
+                    <option value="">-- Seleccionar banco --</option>
+                    <option value="BAC Honduras">BAC Honduras </option>
+                    <option value="Banco Atlántida">Banco Atlántida</option>
+                    <option value="Banco de Occidente">Banco de Occidente </option>
+                    <option value="Banco Ficohsa">Banco Ficohsa</option>
+                    <option value="Banco Banpaís">Banco Banpaís </option>
+                    <option value="Banco Davivienda">Banco Davivienda </option>
+                    <option value="Banco Promérica">Banco Promérica</option>
+                    <option value="Banco Lafise">Banco Lafise</option>
+                    <option value="Banco Ficensa">Banco Ficensa</option>
+                    <option value="Banco de los Trabajadores">Banco de los Trabajadores </option>
+                    <option value="Banco Azteca">Banco Azteca</option>
+                    <option value="Banrural Honduras">Banrural Honduras</option>
+                    <option value="Banco Hondureño del Café">Banco Hondureño del Café</option>
+                  </select>
                 </div>
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 6 }}>Tarjeta (últimos 4)</label>
-                  <input value={tarjeta} onChange={e => setTarjeta(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                  <input value={tarjeta} onChange={e => setTarjeta(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: 6 }}>Factura</label>
-                    <input value={factura} onChange={e => setFactura(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                    <input value={factura} onChange={e => setFactura(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: 6 }}>Autorizador</label>
-                    <input value={autorizador} onChange={e => setAutorizador(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                    <input value={autorizador} onChange={e => setAutorizador(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
                   </div>
                 </div>
               </>
@@ -204,25 +252,40 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm }:
               <>
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 6 }}>Banco</label>
-                  <input value={banco} onChange={e => setBanco(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                  <select value={banco} onChange={e => setBanco(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }}>
+                    <option value="">-- Seleccionar banco --</option>
+                    <option value="BAC Honduras">BAC Honduras — (Banco de América Central Honduras)</option>
+                    <option value="Banco Atlántida">Banco Atlántida</option>
+                    <option value="Banco de Occidente">Banco de Occidente — Banocc</option>
+                    <option value="Banco Ficohsa">Banco Ficohsa</option>
+                    <option value="Banco Banpaís">Banco Banpaís — (Banco del País)</option>
+                    <option value="Banco Davivienda">Banco Davivienda — Davi</option>
+                    <option value="Banco Promérica">Banco Promérica</option>
+                    <option value="Banco Lafise">Banco Lafise</option>
+                    <option value="Banco Ficensa">Banco Ficensa</option>
+                    <option value="Banco de los Trabajadores">Banco de los Trabajadores — BanTrab</option>
+                    <option value="Banco Azteca">Banco Azteca</option>
+                    <option value="Banrural Honduras">Banrural Honduras</option>
+                    <option value="Banco Hondureño del Café">Banco Hondureño del Café</option>
+                  </select>
                 </div>
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', marginBottom: 6 }}>Referencia</label>
-                  <input value={referencia} onChange={e => setReferencia(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 6 }} />
+                  <input value={referencia} onChange={e => setReferencia(e.target.value)} style={{ width: '100%', padding: 6, borderRadius: 6, fontSize: 13 }} />
                 </div>
               </>
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button onClick={agregarPago} className="btn-opaque" style={{ background: '#0ea5a4', color: 'white', padding: '8px 12px', borderRadius: 6 }}>Agregar</button>
-              <button onClick={() => { setMonto(totalDue - totalPaid) }} className="btn-opaque" style={{ background: 'transparent' }}>Exacto</button>
+              <button onClick={agregarPago} className="btn-opaque" style={{ background: '#0ea5a4', color: 'white', padding: '6px 10px', borderRadius: 6, fontSize: 13 }}>Agregar</button>
+              <button onClick={() => { setMonto(totalDue - totalPaid) }} className="btn-opaque" style={{ background: 'transparent', fontSize: 13 }}>Exacto</button>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent' }}>Cancelar</button>
-          <button onClick={handleConfirm} className="btn-opaque" disabled={!canConfirm} style={{ background: canConfirm ? '#16a34a' : 'gray', color: 'white' }}>Registrar y guardar venta</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent', fontSize: 13, padding: '6px 10px' }}>Cancelar</button>
+          <button onClick={handleConfirm} className="btn-opaque" disabled={!canConfirm} style={{ background: canConfirm ? '#16a34a' : 'gray', color: 'white', fontSize: 13, padding: '6px 12px' }}>Registrar y guardar venta</button>
         </div>
       </div>
     </div>
