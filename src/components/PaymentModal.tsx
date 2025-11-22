@@ -32,6 +32,7 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
   const [autorizador, setAutorizador] = useState<string>('')
   const [referencia, setReferencia] = useState<string>('')
   const [usdAmount, setUsdAmount] = useState<number>(0)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) {
@@ -44,6 +45,7 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
       setFactura('')
       setAutorizador('')
       setReferencia('')
+      setConfirmDeleteId(null)
     }
   }, [open])
 
@@ -133,7 +135,23 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
                         {p.tipo === 'tarjeta' && <span>{p.banco || '-'} / {p.tarjeta || '-'} / {p.factura || '-'}</span>}
                         {p.tipo === 'transferencia' && <span>{p.banco || '-'} / {p.referencia || '-'}</span>}
                       </td>
-                      <td style={{ padding: '8px 4px' }}><button onClick={() => eliminarPago(p.id)} className="btn-opaque" style={{ background: 'transparent' }}>Eliminar</button></td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => setConfirmDeleteId(p.id)}
+                          className="btn-opaque"
+                          aria-label="Eliminar pago"
+                          title="Eliminar pago"
+                          style={{ background: 'transparent', border: 'none', padding: 6, cursor: 'pointer', color: '#ef4444' }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -287,6 +305,26 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
           <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent', fontSize: 13, padding: '6px 10px' }}>Cancelar</button>
           <button onClick={handleConfirm} className="btn-opaque" disabled={!canConfirm} style={{ background: canConfirm ? '#16a34a' : 'gray', color: 'white', fontSize: 13, padding: '6px 12px' }}>Registrar y guardar venta</button>
         </div>
+        {confirmDeleteId && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setConfirmDeleteId(null)}
+            style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 12000 }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ width: 360, background: 'white', borderRadius: 8, padding: 14, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', position: 'relative' }}>
+              <button aria-label="Cerrar" title="Cerrar" onClick={() => setConfirmDeleteId(null)} style={{ position: 'absolute', right: 8, top: 8, background: 'transparent', border: 'none', padding: 6, cursor: 'pointer', color: '#666' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Confirmar eliminación</div>
+              <div style={{ marginBottom: 12 }}>¿Eliminar este pago? Esta acción no se puede deshacer.</div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button onClick={() => setConfirmDeleteId(null)} className="btn-opaque" style={{ background: 'transparent', padding: '6px 10px' }}>Cancelar</button>
+                <button onClick={() => { if (confirmDeleteId) { eliminarPago(confirmDeleteId); setConfirmDeleteId(null) } }} className="btn-opaque" style={{ background: '#ef4444', color: 'white', padding: '6px 10px' }}>Eliminar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

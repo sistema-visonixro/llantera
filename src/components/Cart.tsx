@@ -45,24 +45,24 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
 
       {carrito.length > 0 && (
         <div style={{ border: '2px solid #e2e8f0', borderRadius: 8, padding: 12, marginBottom: 16, background: '#f8fafc' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 700, marginTop: 8, color: '#1e293b' }}>
+            <span>TOTAL:</span>
+            <span>L{total.toFixed(2)}</span>
+          </div> <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
             <span>Subtotal:</span>
             <span>L{subtotal.toFixed(2)}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 500 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
               <div>ISV ({(taxRate*100)}%): <strong>L{(Number(perItemTaxes.reduce((s, it) => s + (it.isv || 0), 0))).toFixed(2)}</strong></div>
               <div>Impuesto 18%: <strong>L{(Number(perItemTaxes.reduce((s, it) => s + (it.imp18 || 0), 0))).toFixed(2)}</strong></div>
               <div>Impuesto turístico ({(taxTouristRate*100)}%): <strong>L{(Number(perItemTaxes.reduce((s, it) => s + (it.tur || 0), 0))).toFixed(2)}</strong></div>
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 700, marginTop: 8, color: '#1e293b' }}>
-            <span>TOTAL:</span>
-            <span>L{total.toFixed(2)}</span>
-          </div>
+       
 
           <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
-            <div>Tax rates: ISV {(taxRate*100).toFixed(2)}%, 18% {(tax18Rate*100).toFixed(2)}%, Tur {(taxTouristRate*100).toFixed(2)}%</div>
+       
             <details style={{ marginTop: 6 }}>
               <summary style={{ cursor: 'pointer' }}>Ver desglose por ítem</summary>
               <div style={{ marginTop: 8 }}>
