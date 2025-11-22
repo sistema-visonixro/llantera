@@ -11,6 +11,7 @@ import PaymentModal from '../components/PaymentModal'
 import ProductTable from '../components/ProductTable'
 import Cart from '../components/Cart'
 import HeaderBar from '../components/HeaderBar'
+import CajaConfigModal from '../components/CajaConfigModal'
 import DatosFacturaModal from '../components/DatosFacturaModal'
 import ModalWrapper from '../components/ModalWrapper'
 import ImageFallback from '../components/ImageFallback'
@@ -191,6 +192,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [paymentInfo, setPaymentInfo] = useState<any | null>(null)
   const [invoiceAfterPayment, setInvoiceAfterPayment] = useState(false)
   const [printFormat, setPrintFormat] = useState<'carta' | 'cinta'>('carta')
+  const [cajaConfigOpen, setCajaConfigOpen] = useState(false)
 
   // Autocomplete RTN -> nombre: intenta traer nombre desde `clientenatural` o `clientejuridico` según `clienteTipo`
   const handleRTNChange = async (val: string) => {
@@ -1543,6 +1545,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
         onNavigate={(v) => setView(v)}
         onOpenDatosFactura={() => setDatosFacturaOpen(true)}
         onPrintFormatChange={(fmt) => setPrintFormat(fmt)}
+        onOpenCajaConfig={() => setCajaConfigOpen(true)}
         printFormat={printFormat}
       />
 
@@ -1588,10 +1591,7 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 13, color: '#333' }}>Tipo de cambio Lps/$</label>
-            <input type="number" min={0} step="0.01" value={exchangeRate} onChange={e => { const v = Number(e.target.value || 0); setExchangeRate(Number(v.toFixed ? Number(v.toFixed(2)) : v)) }} style={{ width: 120, padding: '8px 10px', borderRadius: 8, border: '1px solid #cbd5e1' }} />
-          </div>
+          {/* Tipo de cambio moved to CajaConfigModal; hidden from main header */}
         </div>
 
         {/* Layout de 2 columnas: Tabla + Carrito */}
@@ -1648,6 +1648,15 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
         }
         setPaymentModalOpen(false)
       }} />
+
+      {/* Modal: Configuración de caja (print format + tipo de cambio) */}
+      {/** lazy import component below */}
+      <React.Suspense fallback={null}>
+        {/* simple local import */}
+      </React.Suspense>
+
+      {/* Import modal component directly to keep simple */}
+      <CajaConfigModal open={cajaConfigOpen} onClose={() => setCajaConfigOpen(false)} printFormat={printFormat} onPrintFormatChange={(f) => setPrintFormat(f)} exchangeRate={exchangeRate} onExchangeRateChange={(v) => setExchangeRate(v)} />
 
       {/* Confirmación para guardar cotización (separada) */}
       <CotizacionConfirmModal

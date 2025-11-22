@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import ZoomWrapper from './ZoomWrapper'
 import supabase from '../lib/supabaseClient'
 
 type Cliente = {
@@ -62,7 +63,8 @@ export default function ClienteSearchModal({ open, onClose, onSelect }:
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
-      <div style={{ width: 820, maxWidth: '95%', maxHeight: '80vh', overflow: 'auto', background: 'white', borderRadius: 10, padding: 16 }}>
+      <ZoomWrapper>
+        <div style={{ width: 820, maxWidth: '95%', maxHeight: '80vh', overflow: 'auto', background: 'white', borderRadius: 10, padding: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>Buscar Cliente</h3>
           <button onClick={onClose} className="btn-opaque">Cerrar</button>
@@ -102,7 +104,8 @@ export default function ClienteSearchModal({ open, onClose, onSelect }:
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      </ZoomWrapper>
     </div>
   )
 }

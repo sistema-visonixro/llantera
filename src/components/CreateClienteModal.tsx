@@ -1,4 +1,5 @@
 import React from 'react'
+import ZoomWrapper from './ZoomWrapper'
 
 type Props = {
   open: boolean
@@ -20,7 +21,8 @@ export default function CreateClienteModal({ open, onClose, clienteRTN, clienteN
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div style={{ width: 680, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
+      <ZoomWrapper>
+        <div style={{ width: 680, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3 style={{ margin: 0 }}>Crear Cliente Jurídico</h3>
           <button onClick={onClose} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
@@ -55,7 +57,8 @@ export default function CreateClienteModal({ open, onClose, clienteRTN, clienteN
           <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent', color: '#111' }}>Cancelar</button>
           <button onClick={async () => { await onCreate() }} className="btn-opaque" style={{ opacity: (!clienteNombre || !clienteRTN) ? 0.6 : 1 }} disabled={!clienteNombre || !clienteRTN}>Crear cliente</button>
         </div>
-      </div>
+        </div>
+      </ZoomWrapper>
     </div>
   )
 }

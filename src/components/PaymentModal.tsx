@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ZoomWrapper from './ZoomWrapper'
 
 type PagoItem = {
   id: string
@@ -114,7 +115,8 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000 }}>
-      <div style={{ width: 1100, maxWidth: '99%', background: 'white', borderRadius: 10, padding: 16, maxHeight: '94vh', overflow: 'auto' }}>
+      <ZoomWrapper>
+        <div style={{ width: 1100, maxWidth: '99%', background: 'white', borderRadius: 10, padding: 16, maxHeight: '94vh', overflow: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>Registrar Pago</h3>
           <button onClick={onClose} className="btn-opaque">Cerrar</button>
@@ -353,7 +355,8 @@ export default function PaymentModal({ open, onClose, totalDue, onConfirm, excha
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </ZoomWrapper>
     </div>
   )
 }

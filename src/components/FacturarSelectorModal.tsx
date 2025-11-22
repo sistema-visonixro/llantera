@@ -1,4 +1,5 @@
 import React from 'react'
+import ZoomWrapper from './ZoomWrapper'
 
 type Props = {
   open: boolean
@@ -16,7 +17,8 @@ export default function FacturarSelectorModal({ open, onClose, doFacturaClienteF
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div style={{ width: 640, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)', display: 'flex', gap: 16, alignItems: 'stretch' }}>
+      <ZoomWrapper>
+        <div style={{ width: 640, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)', display: 'flex', gap: 16, alignItems: 'stretch' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h3 style={{ margin: 0 }}>Seleccionar tipo de cliente</h3>
@@ -44,7 +46,8 @@ export default function FacturarSelectorModal({ open, onClose, doFacturaClienteF
         </div>
 
      
-      </div>
+        </div>
+      </ZoomWrapper>
     </div>
   )
 }

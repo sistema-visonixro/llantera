@@ -1,4 +1,5 @@
 import React from 'react'
+import ZoomWrapper from './ZoomWrapper'
 import ClienteSearchModal from './ClienteSearchModal'
 
 type Props = {
@@ -29,7 +30,8 @@ export default function ClienteNormalModal({ open, onClose, clienteTipo, cliente
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div style={{ width: 600, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
+      <ZoomWrapper>
+        <div style={{ width: 600, maxWidth: '95%', background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 18px 50px rgba(2,6,23,0.35)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3 style={{ margin: 0 }}>{clienteTipo === 'juridico' ? 'Datos del Cliente (Jurídico)' : 'Datos del Cliente'}</h3>
           <button onClick={onClose} className="btn-opaque" style={{ padding: '6px 10px' }}>Cerrar</button>
@@ -80,7 +82,8 @@ export default function ClienteNormalModal({ open, onClose, clienteTipo, cliente
             <button onClick={submitClienteNormal} className="btn-opaque" disabled={!clienteNombre || !clienteRTN} style={{ opacity: (!clienteNombre || !clienteRTN) ? 0.6 : 1 }}>Generar Factura</button>
           )}
         </div>
-      </div>
+        </div>
+      </ZoomWrapper>
     </div>
   )
 }
