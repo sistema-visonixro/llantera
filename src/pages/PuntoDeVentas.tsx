@@ -760,6 +760,30 @@ const insertVenta = async ({ clienteName, rtn, paymentPayload, caiData, usuarioI
     if (detErr) {
       throw detErr
     }
+    // insertar pagos relacionados (si existen en paymentPayload.pagos)
+    try {
+      if (paymentPayload && Array.isArray(paymentPayload.pagos) && paymentPayload.pagos.length > 0) {
+        const pagosRows = paymentPayload.pagos.map((p: any) => ({
+          venta_id: ventaId,
+          tipo: p.tipo,
+          monto: Number(p.monto || 0),
+          banco: p.banco || null,
+          tarjeta: p.tarjeta || null,
+          // store the invoice number generated for this venta for easier tracing
+          factura: facturaNum || p.factura || null,
+          autorizador: p.autorizador || null,
+          referencia: p.referencia || null,
+          meta: p.meta || null,
+          // only set created_by when usuarioId is a UUID to avoid Postgres type errors
+          created_by: (typeof usuarioId === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(usuarioId)) ? usuarioId : null
+        }))
+        const { data: pagosIns, error: pagosErr } = await supabase.from('pagos').insert(pagosRows).select('id')
+        if (pagosErr) console.warn('Error insertando pagos en tabla pagos:', pagosErr)
+        else console.debug('Pagos insertados:', pagosIns)
+      }
+    } catch (e) {
+      console.warn('Excepción insertando pagos:', e)
+    }
     // If we inserted manually and computed a new sequence, attempt to persist secuencia_actual in the cai row
     const manualCaiId = (usedCai && (usedCai.id || usedCai.id === 0)) ? usedCai.id : null
     if (manualCaiId != null && computedSeqNum != null) {
