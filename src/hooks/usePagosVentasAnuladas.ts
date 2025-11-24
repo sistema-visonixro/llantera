@@ -23,20 +23,30 @@ export default function usePagosVentasAnuladas(
 
       // Normalize fechaDesde to include timezone if missing (assume Honduras -06:00)
       let since = fechaDesde;
-      if (since && !since.includes("Z") && !since.includes("+") && !since.match(/-\d\d:\d\d$/)) {
+      if (
+        since &&
+        !since.includes("Z") &&
+        !since.includes("+") &&
+        !since.match(/-\d\d:\d\d$/)
+      ) {
         since = `${since}-06:00`;
       }
       const sinceIso = since ? new Date(since).toISOString() : null;
 
       // 1) obtener ids de ventas anuladas desde fecha
-      let ventasQuery = supabase.from("ventas").select("id").ilike("estado", "%anulad%");
+      let ventasQuery = supabase
+        .from("ventas")
+        .select("id")
+        .ilike("estado", "%anulad%");
       if (sinceIso) ventasQuery = ventasQuery.gte("fecha_venta", sinceIso);
       if (usuarioNombre) ventasQuery = ventasQuery.eq("usuario", usuarioNombre);
 
       const { data: ventasRows, error: ventasErr } = await ventasQuery;
       if (ventasErr) throw ventasErr;
 
-      const ventaIdsRaw = Array.isArray(ventasRows) ? ventasRows.map((v: any) => v.id).filter(Boolean) : [];
+      const ventaIdsRaw = Array.isArray(ventasRows)
+        ? ventasRows.map((v: any) => v.id).filter(Boolean)
+        : [];
       if (ventaIdsRaw.length === 0) {
         setData([]);
         return;
@@ -60,7 +70,9 @@ export default function usePagosVentasAnuladas(
       if (usuarioNombre && (usuarioId || usuarioId === 0)) {
         const asNumber = Number(usuarioId);
         if (!Number.isNaN(asNumber)) {
-          pagosQuery = pagosQuery.or(`usuario_nombre.eq.${usuarioNombre},usuario_id.eq.${asNumber}`);
+          pagosQuery = pagosQuery.or(
+            `usuario_nombre.eq.${usuarioNombre},usuario_id.eq.${asNumber}`
+          );
         } else {
           pagosQuery = pagosQuery.eq("usuario_nombre", usuarioNombre);
         }

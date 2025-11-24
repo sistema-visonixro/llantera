@@ -3,7 +3,7 @@ import NotasCreditoModal from "../components/NotasCreditoModal";
 import ModalWrapper from "../components/ModalWrapper";
 import Confirmado from "../components/Confirmado";
 import supabase from "../lib/supabaseClient";
-import useHondurasTime from "../lib/useHondurasTime";
+import useHondurasTime, { hondurasTodayDate } from "../lib/useHondurasTime";
 import generateNcHTML, { generateNotaAbonoHTML } from "../lib/nchtmlimp";
 
 type Devolucion = {
@@ -186,10 +186,10 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
     }
     try {
       const facturaVal = facturaBuscar;
-      // buscar venta por campo `factura`
+      // buscar venta por campo `factura` (seleccionamos todo y luego usamos los campos disponibles)
       const { data: ventaRow, error: ventaErr } = await supabase
         .from("ventas")
-        .select("id,factura")
+        .select("*")
         .eq("factura", facturaVal)
         .maybeSingle();
       if (ventaErr) {
@@ -205,6 +205,40 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         setErrorMessage("Factura no encontrada");
         setErrorOpen(true);
         return;
+      }
+
+      // Bloquear devoluciones para facturas del día actual o posteriores
+      try {
+        const ventaFechaRaw = (ventaRow as any).fecha_venta || null;
+        if (ventaFechaRaw) {
+          // Obtener inicio del día en Honduras
+          const todayStr = hondurasTodayDate(); // YYYY-MM-DD
+          const ventaFechaStr = String(ventaFechaRaw);
+          // Si la fecha almacenada comienza con la fecha de hoy (ISO-like), bloqueamos
+          if (ventaFechaStr.startsWith(todayStr)) {
+            setErrorMessage(
+              "No se permite crear devoluciones para facturas del día actual."
+            );
+            setErrorOpen(true);
+            return;
+          }
+          // Fallback: comparar fechas completas
+          const ventaDate = new Date(ventaFechaStr);
+          const hoyInicio = new Date(useHondurasTime().hondurasNowISO());
+          hoyInicio.setHours(0, 0, 0, 0);
+          if (
+            !isNaN(ventaDate.getTime()) &&
+            ventaDate.getTime() >= hoyInicio.getTime()
+          ) {
+            setErrorMessage(
+              "No se permite crear devoluciones para facturas del día actual. Debe realizar una anulacion."
+            );
+            setErrorOpen(true);
+            return;
+          }
+        }
+      } catch (e) {
+        console.debug("Error validando fecha de venta para devoluciones", e);
       }
 
       // Prevent creating a devolución if there's already a devoluciones_ventas record linked to this venta
@@ -238,7 +272,37 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         setErrorOpen(true);
         return;
       }
-      setVentaEncontrada(ventaRow);
+      // enriquecer venta con datos del cliente (nombre, rtn) si es posible
+      let ventaEnriquecida: any = { ...(ventaRow as any) };
+      try {
+        // Priorizar campos ya presentes en la fila: `nombre_cliente`, `rtn` o variantes
+        if ((ventaRow as any).nombre_cliente) {
+          ventaEnriquecida.cliente_nombre = (ventaRow as any).nombre_cliente;
+        }
+        if ((ventaRow as any).rtn) {
+          ventaEnriquecida.cliente_rtn = (ventaRow as any).rtn;
+        }
+
+        // Si existe cliente_id y parece UUID, intentar leer nombre/rtn desde la tabla `clientes`
+        const clienteId = (ventaRow as any).cliente_id;
+        if (clienteId && isUUID(String(clienteId))) {
+          const { data: cli, error: cliErr } = await supabase
+            .from("clientes")
+            .select("id,nombre,rtn")
+            .eq("id", clienteId)
+            .maybeSingle();
+          if (!cliErr && cli) {
+            ventaEnriquecida.cliente_nombre =
+              ventaEnriquecida.cliente_nombre || cli.nombre || null;
+            ventaEnriquecida.cliente_rtn =
+              ventaEnriquecida.cliente_rtn || cli.rtn || null;
+          }
+        }
+      } catch (e) {
+        console.debug("Error cargando datos de cliente para mostrar en UI", e);
+      }
+
+      setVentaEncontrada(ventaEnriquecida);
       // obtener detalles de la venta
       const { data: detalles, error: detErr } = await supabase
         .from("ventas_detalle")
@@ -1190,9 +1254,36 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
               {/* Input/button moved to top — aquí solo mostramos la factura encontrada */}
               <div style={{ color: "#475569" }}>
                 {ventaEncontrada ? (
-                  <span>
-                    Venta encontrada: <strong>{ventaEncontrada.factura}</strong>
-                  </span>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                  >
+                    <div>
+                      Venta encontrada:{" "}
+                      <strong>{ventaEncontrada.factura}</strong>
+                    </div>
+                    <div style={{ color: "#475569", fontSize: 13 }}>
+                      {ventaEncontrada.fecha_venta ? (
+                        <div>
+                          <strong>Fecha:</strong>{" "}
+                          {new Date(ventaEncontrada.fecha_venta).toLocaleString(
+                            undefined,
+                            { timeZone: "America/Tegucigalpa" }
+                          )}
+                        </div>
+                      ) : null}
+                      {ventaEncontrada.cliente_nombre ? (
+                        <div>
+                          <strong>Cliente:</strong>{" "}
+                          {ventaEncontrada.cliente_nombre}
+                        </div>
+                      ) : null}
+                      {ventaEncontrada.cliente_rtn ? (
+                        <div>
+                          <strong>RTN:</strong> {ventaEncontrada.cliente_rtn}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 ) : (
                   <span style={{ color: "#94a3b8" }}>
                     Usa el buscador superior para buscar una factura

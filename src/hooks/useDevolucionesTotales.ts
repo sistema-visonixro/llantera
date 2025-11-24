@@ -1,71 +1,115 @@
-import { useEffect, useState, useCallback } from 'react'
-import supabase from '../lib/supabaseClient'
+import { useEffect, useState, useCallback } from "react";
+import supabase from "../lib/supabaseClient";
 
 type Totals = {
-  efectivo: number
-  tarjeta: number
-  transferencia: number
-  dolares: number
-  total: number
-}
+  efectivo: number;
+  tarjeta: number;
+  transferencia: number;
+  dolares: number;
+  total: number;
+};
 
-export default function useDevolucionesTotales(fechaDesde?: string | null, usuario?: string | null) {
-  const [totals, setTotals] = useState<Totals>({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-  const [loading, setLoading] = useState(false)
+export default function useDevolucionesTotales(
+  fechaDesde?: string | null,
+  usuario?: string | null
+) {
+  const [totals, setTotals] = useState<Totals>({
+    efectivo: 0,
+    tarjeta: 0,
+    transferencia: 0,
+    dolares: 0,
+    total: 0,
+  });
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!fechaDesde) {
-      setTotals({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-      return
+      setTotals({
+        efectivo: 0,
+        tarjeta: 0,
+        transferencia: 0,
+        dolares: 0,
+        total: 0,
+      });
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       // Normalize fechaDesde to include timezone if missing (assume Honduras -06:00)
-      let since = fechaDesde
-      if (since && !since.includes('Z') && !since.includes('+') && !since.match(/-\d\d:\d\d$/)) {
-        since = `${since}-06:00`
+      let since = fechaDesde;
+      if (
+        since &&
+        !since.includes("Z") &&
+        !since.includes("+") &&
+        !since.match(/-\d\d:\d\d$/)
+      ) {
+        since = `${since}-06:00`;
       }
-      const sinceIso = since ? new Date(since).toISOString() : null
+      const sinceIso = since ? new Date(since).toISOString() : null;
 
-      let query = supabase.from('devoluciones_ventas').select('total, tipo_devolucion')
-      if (sinceIso) query = query.gte('fecha_devolucion', sinceIso as any)
-      if (usuario) query = query.eq('usuario', usuario)
-      const { data, error } = await query
+      let query = supabase
+        .from("devoluciones_ventas")
+        .select("total, tipo_devolucion");
+      if (sinceIso) query = query.gte("fecha_devolucion", sinceIso as any);
+      if (usuario) query = query.eq("usuario", usuario);
+      const { data, error } = await query;
       if (error) {
-        console.debug('useDevolucionesTotales: error fetching devoluciones_ventas', error)
-        setTotals({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-        return
+        console.debug(
+          "useDevolucionesTotales: error fetching devoluciones_ventas",
+          error
+        );
+        setTotals({
+          efectivo: 0,
+          tarjeta: 0,
+          transferencia: 0,
+          dolares: 0,
+          total: 0,
+        });
+        return;
       }
-      const newTotals: Totals = { efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 }
+      const newTotals: Totals = {
+        efectivo: 0,
+        tarjeta: 0,
+        transferencia: 0,
+        dolares: 0,
+        total: 0,
+      };
       if (Array.isArray(data)) {
         data.forEach((d: any) => {
-          const monto = Number(d.total || 0)
-          const tipo = (d.tipo_devolucion || '').toLowerCase()
-          let category: keyof Totals | null = null
-          if (tipo.includes('efectivo') || tipo === 'devolucion') category = 'efectivo'
-          else if (tipo.includes('tarjeta')) category = 'tarjeta'
-          else if (tipo.includes('transferencia')) category = 'transferencia'
-          else if (tipo.includes('dolar')) category = 'dolares'
+          const monto = Number(d.total || 0);
+          const tipo = (d.tipo_devolucion || "").toLowerCase();
+          let category: keyof Totals | null = null;
+          if (tipo.includes("efectivo") || tipo === "devolucion")
+            category = "efectivo";
+          else if (tipo.includes("tarjeta")) category = "tarjeta";
+          else if (tipo.includes("transferencia")) category = "transferencia";
+          else if (tipo.includes("dolar")) category = "dolares";
           if (!category) {
             // fallback: treat unknown as efectivo
-            category = 'efectivo'
+            category = "efectivo";
           }
-          newTotals[category] += monto
-          newTotals.total += monto
-        })
+          newTotals[category] += monto;
+          newTotals.total += monto;
+        });
       }
-      setTotals(newTotals)
+      setTotals(newTotals);
     } catch (e) {
-      console.debug('useDevolucionesTotales: exception', e)
-      setTotals({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
+      console.debug("useDevolucionesTotales: exception", e);
+      setTotals({
+        efectivo: 0,
+        tarjeta: 0,
+        transferencia: 0,
+        dolares: 0,
+        total: 0,
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [fechaDesde, usuario])
+  }, [fechaDesde, usuario]);
 
   useEffect(() => {
-    load()
-  }, [load])
+    load();
+  }, [load]);
 
-  return { totals, loading, reload: load }
+  return { totals, loading, reload: load };
 }
