@@ -3,6 +3,7 @@ import supabase from '../lib/supabaseClient'
 import MovimientoTypeModal from '../components/MovimientoTypeModal'
 import MovimientoFormModal from '../components/MovimientoFormModal'
 import useHondurasTime, { hondurasNowISO, hondurasNowLocalInput, hondurasTodayDate } from '../lib/useHondurasTime'
+import useCajaSession from '../hooks/useCajaSession'
 import { printMovimientoReceipt } from '../components/ReciboPrinter'
 
 type Ingreso = {
@@ -16,6 +17,7 @@ type Ingreso = {
 }
 
 export default function IngresoEfectivo({ onBack }: { onBack: () => void }) {
+  const { session } = useCajaSession();
   const [ingresos, setIngresos] = useState<Ingreso[]>([])
   const [loading, setLoading] = useState(true)
   const [chosenCajaTable, setChosenCajaTable] = useState<string | null>(null)
@@ -99,21 +101,42 @@ export default function IngresoEfectivo({ onBack }: { onBack: () => void }) {
           // If we had to fall back to unfiltered select, apply client-side filter so the user only sees their own movements
           const finalList = usedKey ? mapped : mapped.filter(m => (m.usuario || '').toLowerCase() === (usuario || '').toLowerCase())
 
-          // additionally filter to only today's movements (Honduras timezone)
+          // Filter movements by session apertura if available, otherwise keep today's movements
           try {
-            const today = hondurasTodayDate()
-            const finalDateFiltered = finalList.filter(m => {
-              try {
-                const d = new Date(m.fecha)
-                const asDate = d.toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' })
-                return asDate === today
-              } catch (e) {
-                return false
+            if (session && session.fecha_apertura) {
+              // normalize fecha_apertura to include timezone if missing
+              let since = session.fecha_apertura
+              if (since && !since.includes('Z') && !since.includes('+') && !since.match(/-\d\d:\d\d$/)) {
+                since = `${since}-06:00`
               }
-            })
-            setIngresos(finalDateFiltered)
+              const sinceIso = since ? new Date(since) : null
+              if (sinceIso) {
+                const finalDateFiltered = finalList.filter(m => {
+                  try {
+                    const d = new Date(m.fecha)
+                    return d >= sinceIso
+                  } catch (e) {
+                    return false
+                  }
+                })
+                setIngresos(finalDateFiltered)
+              } else {
+                setIngresos(finalList)
+              }
+            } else {
+              const today = hondurasTodayDate()
+              const finalDateFiltered = finalList.filter(m => {
+                try {
+                  const d = new Date(m.fecha)
+                  const asDate = d.toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' })
+                  return asDate === today
+                } catch (e) {
+                  return false
+                }
+              })
+              setIngresos(finalDateFiltered)
+            }
           } catch (e) {
-            // fallback
             setIngresos(finalList)
           }
           setChosenCajaTable(tbl)
@@ -129,7 +152,8 @@ export default function IngresoEfectivo({ onBack }: { onBack: () => void }) {
       }
       setLoading(false)
     })()
-  }, [])
+  // re-run when session or usuario change so we can filter by session.fecha_apertura
+  }, [session, usuario])
 
   function saveToStorage(list: Ingreso[]) {
     // no-op: migration to DB handled server-side
