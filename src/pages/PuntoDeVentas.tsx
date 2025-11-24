@@ -231,20 +231,20 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   Fecha: ${new Date().toLocaleString("es-HN")}
   ----------------------------------------
   ${carrito
-    .map(
-      (i) =>
-        `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(
-          Number(i.producto.precio || 0) * i.cantidad
-        ).toFixed(2)}`
-    )
-    .join("\n")}
+        .map(
+          (i) =>
+            `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(
+              Number(i.producto.precio || 0) * i.cantidad
+            ).toFixed(2)}`
+        )
+        .join("\n")}
   ----------------------------------------
   Subtotal: L${subtotal.toFixed(2)}
   ISV (${(taxRate * 100).toFixed(2)}%): L${isvTotal.toFixed(2)}
   Impuesto 18%: L${imp18Total.toFixed(2)}
   Impuesto turístico (${(taxTouristRate * 100).toFixed(
-    2
-  )}%): L${impTouristTotal.toFixed(2)}
+          2
+        )}%): L${impTouristTotal.toFixed(2)}
   TOTAL: L${total.toFixed(2)}
   ${tipo === "factura" ? "\n¡Gracias por su compra!" : "\nVálida por 24 horas"}
     `.trim();
@@ -317,7 +317,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               clienteNombreInputRef.current?.focus();
-            } catch (e) {}
+            } catch (e) { }
           }, 50);
           return;
         } else {
@@ -345,7 +345,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setTimeout(() => {
           try {
             clienteNombreInputRef.current?.focus();
-          } catch (e) {}
+          } catch (e) { }
         }, 50);
       } else {
         // no existe, limpiar nombre para nuevo registro
@@ -451,9 +451,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               null;
             try {
               setCotizacionLastNumero(numeroToReturn);
-            } catch (e) {}
+            } catch (e) { }
           }
-        } catch (e) {}
+        } catch (e) { }
       } else {
         const { data: insData, error: insErr } = await supabase
           .from("cotizaciones")
@@ -502,7 +502,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
         try {
           setCotizacionLastNumero(numeroToReturn);
-        } catch (e) {}
+        } catch (e) { }
         if (!cotizacionId) return null;
       }
 
@@ -517,18 +517,18 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const isvItem = exento
           ? 0
           : aplica18
-          ? 0
-          : price * (taxRate || 0) * qty;
+            ? 0
+            : price * (taxRate || 0) * qty;
         const imp18Item = exento
           ? 0
           : aplica18
-          ? price * (tax18Rate || 0) * qty
-          : 0;
+            ? price * (tax18Rate || 0) * qty
+            : 0;
         const turItem = exento
           ? 0
           : aplicaTur
-          ? price * (taxTouristRate || 0) * qty
-          : 0;
+            ? price * (taxTouristRate || 0) * qty
+            : 0;
         const subtotalItem = price * qty;
         const totalItem = subtotalItem + isvItem + imp18Item + turItem;
         return {
@@ -701,7 +701,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         else
           try {
             setCotizacionEditId(null);
-          } catch (e) {}
+          } catch (e) { }
       } catch (e) {
         console.warn("Error marcacion pre-print:", e);
       }
@@ -718,19 +718,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const parsedU = rawU ? JSON.parse(rawU) : null;
           userId =
             parsedU &&
-            (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
+              (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
               ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id
               : null;
           const userNameFromStorage =
             parsedU &&
-            (parsedU.username ||
-              parsedU.user?.username ||
-              parsedU.name ||
-              parsedU.user?.name)
-              ? parsedU.username ||
+              (parsedU.username ||
                 parsedU.user?.username ||
                 parsedU.name ||
-                parsedU.user?.name
+                parsedU.user?.name)
+              ? parsedU.username ||
+              parsedU.user?.username ||
+              parsedU.name ||
+              parsedU.user?.name
               : null;
           console.debug("PV: CAI lookup - raw localStorage.user:", rawU);
           console.debug("PV: CAI lookup - parsed user object:", parsedU);
@@ -823,7 +823,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (!doc || !win) {
         try {
           document.body.removeChild(iframe);
-        } catch (e) {}
+        } catch (e) { }
       } else {
         doc.open();
         doc.write(html);
@@ -839,7 +839,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               document.body.removeChild(iframe);
-            } catch (e) {}
+            } catch (e) { }
           }, 800);
         };
 
@@ -870,7 +870,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           } catch (e) {
             try {
               win.addEventListener("load", printWhenReady);
-            } catch (e) {}
+            } catch (e) { }
             setTimeout(printWhenReady, 1000);
           }
         };
@@ -899,7 +899,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           try {
             w.print();
             w.close();
-          } catch (e) {}
+          } catch (e) { }
         }, 800);
       }
     }
@@ -1027,7 +1027,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         (usedCai && usedCai.identificador
           ? String(usedCai.identificador)
           : "") +
-          (usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : "") ||
+        (usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : "") ||
         null,
       fecha_limite_emision:
         usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null,
@@ -1050,7 +1050,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     if (ventaErr) {
       const msg = String(
         (ventaErr && (ventaErr.message || ventaErr.msg || ventaErr.details)) ||
-          ""
+        ""
       );
       const code = ventaErr && ventaErr.code ? String(ventaErr.code) : "";
       const looksLikeMissingCol =
@@ -1199,7 +1199,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   setCaiInfoState(refreshed);
                   try {
                     localStorage.setItem("caiInfo", JSON.stringify(refreshed));
-                  } catch (e) {}
+                  } catch (e) { }
                 }
               } catch (e) {
                 console.debug("Error refreshing cai after RPC:", e);
@@ -1225,7 +1225,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   setCaiInfoState(refreshed);
                   try {
                     localStorage.setItem("caiInfo", JSON.stringify(refreshed));
-                  } catch (e) {}
+                  } catch (e) { }
                 }
               } catch (e) {
                 console.debug("Error refreshing cai after RPC (scalar):", e);
@@ -1508,7 +1508,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 setCaiInfoState(newCai);
                 try {
                   localStorage.setItem("caiInfo", JSON.stringify(newCai));
-                } catch (e) {}
+                } catch (e) { }
               } catch (e) {
                 console.debug(
                   "Error updating local caiInfoState/localStorage:",
@@ -1543,7 +1543,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               setCaiInfoState(newCai);
               try {
                 localStorage.setItem("caiInfo", JSON.stringify(newCai));
-              } catch (e) {}
+              } catch (e) { }
             } catch (e) {
               console.debug(
                 "Error updating local caiInfoState/localStorage (after validation):",
@@ -1596,7 +1596,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       setTimeout(() => {
         try {
           clienteNombreRef.current?.focus();
-        } catch (e) {}
+        } catch (e) { }
       }, 80);
     }
   }, [clienteNormalModalOpen]);
@@ -1710,7 +1710,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           );
           try {
             setCotizacionEditId(null);
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (e) {
         console.warn("Error marcacion pre-print:", e);
@@ -1729,19 +1729,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const parsedU = rawU ? JSON.parse(rawU) : null;
           userId =
             parsedU &&
-            (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
+              (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
               ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id
               : null;
           const userNameFromStorage =
             parsedU &&
-            (parsedU.username ||
-              parsedU.user?.username ||
-              parsedU.name ||
-              parsedU.user?.name)
-              ? parsedU.username ||
+              (parsedU.username ||
                 parsedU.user?.username ||
                 parsedU.name ||
-                parsedU.user?.name
+                parsedU.user?.name)
+              ? parsedU.username ||
+              parsedU.user?.username ||
+              parsedU.name ||
+              parsedU.user?.name
               : null;
           console.debug(
             "PV (clienteNormal): CAI lookup - raw localStorage.user:",
@@ -1843,7 +1843,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (!doc || !win) {
         try {
           document.body.removeChild(iframe);
-        } catch (e) {}
+        } catch (e) { }
       } else {
         doc.open();
         doc.write(html);
@@ -1859,7 +1859,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               document.body.removeChild(iframe);
-            } catch (e) {}
+            } catch (e) { }
           }, 800);
         };
 
@@ -1890,7 +1890,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           } catch (e) {
             try {
               win.addEventListener("load", printWhenReady);
-            } catch (e) {}
+            } catch (e) { }
             setTimeout(printWhenReady, 1000);
           }
         };
@@ -1919,7 +1919,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           try {
             w.print();
             w.close();
-          } catch (e) {}
+          } catch (e) { }
         }, 800);
       }
     }
@@ -2051,8 +2051,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           priceMap[String(r.id)] !== undefined
             ? priceMap[String(r.id)]
             : r.precio !== undefined
-            ? Number(r.precio)
-            : 0,
+              ? Number(r.precio)
+              : 0,
         exento:
           r.exento === true ||
           String(r.exento) === "true" ||
@@ -2104,19 +2104,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setCotizacionEditId(
             parsed.header && parsed.header.id ? String(parsed.header.id) : null
           );
-        } catch (e) {}
+        } catch (e) { }
         try {
           const num =
             parsed.header &&
-            (parsed.header.numero_cotizacion ||
-              parsed.header["Número"] ||
-              parsed.header.numero)
-              ? parsed.header.numero_cotizacion ||
+              (parsed.header.numero_cotizacion ||
                 parsed.header["Número"] ||
-                parsed.header.numero
+                parsed.header.numero)
+              ? parsed.header.numero_cotizacion ||
+              parsed.header["Número"] ||
+              parsed.header.numero
               : null;
           if (num) setCotizacionLastNumero(num);
-        } catch (e) {}
+        } catch (e) { }
         const detalles = Array.isArray(parsed.detalles) ? parsed.detalles : [];
         const items: ItemCarrito[] = detalles.map((d: any) => {
           const prodMatch = productos.find(
@@ -2125,26 +2125,26 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const producto: Producto = prodMatch
             ? { ...prodMatch }
             : {
-                id: String(
-                  d.producto_id ||
-                    "temp-" + Math.random().toString(36).slice(2, 8)
-                ),
-                sku: d.sku ?? undefined,
-                nombre: d.descripcion || d.nombre || "Artículo",
-                precio: Number(d.precio_unitario || d.precio || 0),
-                categoria: undefined,
-                exento: false,
-                aplica_impuesto_18: false,
-                aplica_impuesto_turistico: false,
-                stock: 0,
-                imagen: undefined,
-              };
+              id: String(
+                d.producto_id ||
+                "temp-" + Math.random().toString(36).slice(2, 8)
+              ),
+              sku: d.sku ?? undefined,
+              nombre: d.descripcion || d.nombre || "Artículo",
+              precio: Number(d.precio_unitario || d.precio || 0),
+              categoria: undefined,
+              exento: false,
+              aplica_impuesto_18: false,
+              aplica_impuesto_turistico: false,
+              stock: 0,
+              imagen: undefined,
+            };
           return { producto, cantidad: Number(d.cantidad || 1) };
         });
         if (items.length > 0) setCarrito(items);
         try {
           localStorage.removeItem("cotizacion_to_load");
-        } catch (e) {}
+        } catch (e) { }
       } catch (e) {
         // ignore parse errors
       }
@@ -2158,7 +2158,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       try {
         const ce = ev as CustomEvent;
         doLoad(ce.detail);
-      } catch (e) {}
+      } catch (e) { }
     };
     window.addEventListener("cotizacion:load", handler as EventListener);
     return () => {
@@ -2184,25 +2184,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         let extractedId: any =
           userIdState ??
           (parsed &&
-          (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
+            (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
             ? parsed.id || parsed.user?.id || parsed.sub || parsed.user_id
             : null);
         const userNameLocal =
           userName ??
           (parsed &&
-          (parsed.username ||
-            parsed.user?.username ||
-            parsed.name ||
-            parsed.user?.name)
-            ? parsed.username ||
+            (parsed.username ||
               parsed.user?.username ||
               parsed.name ||
-              parsed.user?.name
+              parsed.user?.name)
+            ? parsed.username ||
+            parsed.user?.username ||
+            parsed.name ||
+            parsed.user?.name
             : null);
         const userIdQuery: any =
           extractedId != null &&
-          typeof extractedId === "string" &&
-          /^\d+$/.test(extractedId)
+            typeof extractedId === "string" &&
+            /^\d+$/.test(extractedId)
             ? Number(extractedId)
             : extractedId;
         if (userIdQuery != null) {
@@ -2244,7 +2244,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setCaiInfoState(caiFetched);
         try {
           localStorage.setItem("caiInfo", JSON.stringify(caiFetched));
-        } catch (e) {}
+        } catch (e) { }
         console.debug("refreshCaiInfo: updated caiInfoState", caiFetched);
       }
     } catch (e) {
@@ -2261,25 +2261,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         let extractedId: any =
           userIdState ??
           (parsed &&
-          (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
+            (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
             ? parsed.id || parsed.user?.id || parsed.sub || parsed.user_id
             : null);
         const userNameLocal =
           userName ??
           (parsed &&
-          (parsed.username ||
-            parsed.user?.username ||
-            parsed.name ||
-            parsed.user?.name)
-            ? parsed.username ||
+            (parsed.username ||
               parsed.user?.username ||
               parsed.name ||
-              parsed.user?.name
+              parsed.user?.name)
+            ? parsed.username ||
+            parsed.user?.username ||
+            parsed.name ||
+            parsed.user?.name
             : null);
         const userIdQuery: any =
           extractedId != null &&
-          typeof extractedId === "string" &&
-          /^\d+$/.test(extractedId)
+            typeof extractedId === "string" &&
+            /^\d+$/.test(extractedId)
             ? Number(extractedId)
             : extractedId;
         if (userIdQuery != null) {
@@ -2321,7 +2321,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setNcInfoState(ncFetched);
         try {
           localStorage.setItem("ncInfo", JSON.stringify(ncFetched));
-        } catch (e) {}
+        } catch (e) { }
         console.debug("refreshNcInfo: updated ncInfoState", ncFetched);
       }
     } catch (e) {
@@ -2368,13 +2368,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 if (!hasAll) {
                   const userNameLocal =
                     u &&
-                    (u.username || u.user?.username || u.name || u.user?.name)
+                      (u.username || u.user?.username || u.name || u.user?.name)
                       ? u.username || u.user?.username || u.name || u.user?.name
                       : null;
                   const userIdLocal: any =
                     extractedId &&
-                    typeof extractedId === "string" &&
-                    /^\d+$/.test(extractedId)
+                      typeof extractedId === "string" &&
+                      /^\d+$/.test(extractedId)
                       ? Number(extractedId)
                       : extractedId;
                   let fetched: any = null;
@@ -2425,7 +2425,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     setCaiInfoState(fetched);
                     try {
                       localStorage.setItem("caiInfo", JSON.stringify(fetched));
-                    } catch (e) {}
+                    } catch (e) { }
                     console.debug(
                       "PV: refreshed caiInfo from Supabase:",
                       fetched
@@ -2458,13 +2458,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 if (!hasAll) {
                   const userNameLocal =
                     u &&
-                    (u.username || u.user?.username || u.name || u.user?.name)
+                      (u.username || u.user?.username || u.name || u.user?.name)
                       ? u.username || u.user?.username || u.name || u.user?.name
                       : null;
                   const userIdLocal: any =
                     extractedId &&
-                    typeof extractedId === "string" &&
-                    /^\d+$/.test(extractedId)
+                      typeof extractedId === "string" &&
+                      /^\d+$/.test(extractedId)
                       ? Number(extractedId)
                       : extractedId;
                   let fetched: any = null;
@@ -2515,7 +2515,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     setNcInfoState(fetched);
                     try {
                       localStorage.setItem("ncInfo", JSON.stringify(fetched));
-                    } catch (e) {}
+                    } catch (e) { }
                     console.debug(
                       "PV: refreshed ncInfo from Supabase:",
                       fetched
