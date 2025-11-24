@@ -22,7 +22,15 @@ export default function useDataDevoluciones(usuario?: string | null, usuario_id?
 
       if (usuario) q = q.eq('usuario', usuario)
       if (usuario_id !== null && typeof usuario_id !== 'undefined') q = q.eq('usuario_id', String(usuario_id))
-      if (fechaInicio) q = q.gte('fecha_devolucion', fechaInicio)
+      // Normalize fechaInicio (assume Honduras -06:00) and use ISO for comparison
+      if (fechaInicio) {
+        let since = fechaInicio
+        if (since && !since.includes('Z') && !since.includes('+') && !since.match(/-\d\d:\d\d$/)) {
+          since = `${since}-06:00`
+        }
+        const sinceIso = since ? new Date(since).toISOString() : null
+        if (sinceIso) q = q.gte('fecha_devolucion', sinceIso as any)
+      }
 
       const { data: rows, error: qErr } = await q
       if (qErr) {

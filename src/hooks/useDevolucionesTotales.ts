@@ -20,7 +20,15 @@ export default function useDevolucionesTotales(fechaDesde?: string | null, usuar
     }
     setLoading(true)
     try {
-      let query = supabase.from('devoluciones_ventas').select('total, tipo_devolucion').gte('fecha_devolucion', fechaDesde)
+      // Normalize fechaDesde to include timezone if missing (assume Honduras -06:00)
+      let since = fechaDesde
+      if (since && !since.includes('Z') && !since.includes('+') && !since.match(/-\d\d:\d\d$/)) {
+        since = `${since}-06:00`
+      }
+      const sinceIso = since ? new Date(since).toISOString() : null
+
+      let query = supabase.from('devoluciones_ventas').select('total, tipo_devolucion')
+      if (sinceIso) query = query.gte('fecha_devolucion', sinceIso as any)
       if (usuario) query = query.eq('usuario', usuario)
       const { data, error } = await query
       if (error) {
