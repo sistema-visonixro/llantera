@@ -20,30 +20,30 @@ function App() {
   // Obtener datos de la empresa para mostrar nombre y logo en la pestaña
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      try {
-        const company = await getCompanyData()
-        if (!mounted || !company) return
-        const name = company.nombre || company.comercio || company.name || ''
-        if (name) document.title = String(name)
-        const logoUrl = company.logoUrl || company.logo || null
-        if (logoUrl) {
-          try {
-            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
-            if (!link) {
-              link = document.createElement('link')
-              link.rel = 'icon'
-              document.getElementsByTagName('head')[0].appendChild(link)
+      ; (async () => {
+        try {
+          const company = await getCompanyData()
+          if (!mounted || !company) return
+          const name = company.nombre || company.comercio || company.name || ''
+          if (name) document.title = String(name)
+          const logoUrl = company.logoUrl || company.logo || null
+          if (logoUrl) {
+            try {
+              let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']")
+              if (!link) {
+                link = document.createElement('link')
+                link.rel = 'icon'
+                document.getElementsByTagName('head')[0].appendChild(link)
+              }
+              link.href = String(logoUrl)
+            } catch (e) {
+              // ignore
             }
-            link.href = String(logoUrl)
-          } catch (e) {
-            // ignore
           }
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        // ignore
-      }
-    })()
+      })()
     return () => { mounted = false }
   }, [])
 
@@ -57,7 +57,7 @@ function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem('user')
+    localStorage.clear()
     setUser(null)
   }
 

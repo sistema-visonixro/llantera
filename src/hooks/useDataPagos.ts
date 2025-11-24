@@ -16,13 +16,37 @@ export default function useDataPagos(fechaDesde?: string | null) {
         setData([])
         return
       }
-      // fetch pagos since fechaDesde (incluye la columna `valor_moneda` usada para conversión)
-      const { data: pagos, error: pErr } = await supabase
+
+      // Extract user info from localStorage
+      let loggedInUserName: string | null = null
+      let loggedInUserId: string | number | null = null
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('user') : null
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          loggedInUserName = parsed.username || parsed.user?.username || parsed.name || parsed.user?.name || null
+          loggedInUserId = parsed.id || parsed.user?.id || parsed.sub || parsed.user_id || null
+        }
+      } catch (e) {
+        console.error('Error parsing user from localStorage', e)
+      }
+
+      // Build query
+      let query = supabase
         .from('pagos')
         .select('tipo, monto, valor_moneda, created_at')
         .gte('created_at', fechaDesde)
-         .eq('usuario_nombre', 'cajero2')  // Filtra por nombre de usuario
-        .or('usuario_id.eq.2')  // O filtra por id de usuario
+
+      // Apply user filter if we have user info
+      if (loggedInUserName && loggedInUserId) {
+        query = query.or(`usuario_nombre.eq.${loggedInUserName},usuario_id.eq.${loggedInUserId}`)
+      } else if (loggedInUserName) {
+        query = query.eq('usuario_nombre', loggedInUserName)
+      } else if (loggedInUserId) {
+        query = query.eq('usuario_id', loggedInUserId)
+      }
+
+      const { data: pagos, error: pErr } = await query
 
       if (pErr) {
         setError(pErr)

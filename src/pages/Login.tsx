@@ -7,6 +7,7 @@ type User = {
   password: string
   role?: string
   email?: string
+  nombre_usuario?: string
 }
 
 type LoginProps = {
@@ -21,82 +22,85 @@ export default function Login({ onLogin }: LoginProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setMessage(null)
+    const cleanUsername = username.trim()
+    const cleanPassword = password.trim()
+
     try {
-      // Autenticación únicamente contra la tabla `users` en Supabase
+      console.log('Attempting login for:', cleanUsername)
+
+      // Use ilike for case-insensitive username matching
       const { data: sbData, error: sbError } = await supabase
         .from('users')
-        .select('id, username, password, role')
-        .eq('username', username)
+        .select('id, username, password, role, nombre_usuario')
+        .ilike('username', cleanUsername)
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (sbError) {
-        // Problema al consultar Supabase
-        setMessage('Error al consultar el servicio de autenticación')
+        setMessage('Error de base de datos: ' + sbError.message)
         console.error('Supabase error:', sbError)
-        // Si es un error de columna inexistente, dar una sugerencia
-        if ((sbError as any)?.code === '42703') {
-          console.warn('La consulta solicita una columna inexistente en la tabla `users`. Verifica el DDL y ajusta `.select(...)` según las columnas reales.')
-        }
         return
       }
 
       if (!sbData) {
-        setMessage('Credenciales inválidas')
+        console.log('User not found in DB')
+        setMessage('Usuario no encontrado')
         return
       }
 
+      console.log('User found:', sbData.username)
       const found = sbData as User
-      // Nota importante: en producción NO se deben guardar ni comparar contraseñas en texto plano.
-      if (found.password === password) {
-        const toStore = { id: found.id, username: found.username, role: found.role }
-        localStorage.setItem('user', JSON.stringify(toStore))
-        try { console.debug('Login: stored localStorage.user =', toStore) } catch (e) {}
-        // Si es cajero, intentar cargar CAI más reciente y guardarlo en localStorage.caiInfo
-          try {
-          if (found.role === 'cajero') {
-            const { data: caiRows, error: caiErr } = await supabase
-              .from('cai')
-              .select('id, cai, identificador, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual')
-              .eq('cajero', found.username)
-              .order('id', { ascending: false })
-              .limit(1)
-            if (!caiErr && Array.isArray(caiRows) && caiRows.length > 0) {
-              try { localStorage.setItem('caiInfo', JSON.stringify(caiRows[0])) } catch (e) {}
-              try { console.debug('Login: stored localStorage.caiInfo =', caiRows[0]) } catch (e) {}
-            } else {
-              try { localStorage.removeItem('caiInfo') } catch (e) {}
-            }
-          }
-        } catch (e) {
-          console.debug('Login: error fetching cai for cajero', e)
+
+      // Compare passwords
+      if (found.password === cleanPassword) {
+        const toStore = {
+          id: found.id,
+          username: found.username,
+          role: found.role,
+          name: found.nombre_usuario
         }
-        // Additionally, try to fetch and store ncInfo (nota de crédito info) for cajero
+        localStorage.setItem('user', JSON.stringify(toStore))
+
+        // Load additional info for cashiers
         try {
           if (found.role === 'cajero') {
-            const { data: ncRows, error: ncErr } = await supabase
-              .from('ncredito')
-              .select('id, cai, identificador, rango_de, rango_hasta, fecha_vencimiento, secuencia_actual, caja, cajero, usuario_id')
+            // Fetch CAI
+            const { data: caiRows } = await supabase
+              .from('cai')
+              .select('*')
               .eq('cajero', found.username)
               .order('id', { ascending: false })
               .limit(1)
-            if (!ncErr && Array.isArray(ncRows) && ncRows.length > 0) {
-              try { localStorage.setItem('ncInfo', JSON.stringify(ncRows[0])) } catch (e) {}
-              try { console.debug('Login: stored localStorage.ncInfo =', ncRows[0]) } catch (e) {}
-            } else {
-              try { localStorage.removeItem('ncInfo') } catch (e) {}
+
+            if (caiRows && caiRows.length > 0) {
+              localStorage.setItem('caiInfo', JSON.stringify(caiRows[0]))
+            }
+
+            // Fetch NC Info
+            const { data: ncRows } = await supabase
+              .from('ncredito')
+              .select('*')
+              .eq('cajero', found.username)
+              .order('id', { ascending: false })
+              .limit(1)
+
+            if (ncRows && ncRows.length > 0) {
+              localStorage.setItem('ncInfo', JSON.stringify(ncRows[0]))
             }
           }
         } catch (e) {
-          console.debug('Login: error fetching ncredito info for cajero', e)
+          console.error('Error loading extra user data', e)
         }
+
         setMessage('Inicio de sesión correcto')
         if (typeof onLogin === 'function') onLogin()
       } else {
-        setMessage('Credenciales inválidas')
+        console.log('Password mismatch. Input:', cleanPassword, 'Stored:', found.password)
+        setMessage('Contraseña incorrecta')
       }
     } catch (err: any) {
-      setMessage(err.message || 'Error al consultar la base de datos')
+      console.error('Login exception:', err)
+      setMessage(err.message || 'Error desconocido')
     }
   }
 

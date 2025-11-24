@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react'
 import useCajaSession from '../hooks/useCajaSession'
-import supabase from '../lib/supabaseClient'
 import useHondurasTime from '../lib/useHondurasTime'
 import ModalWrapper from '../components/ModalWrapper'
+import useDevolucionesTotales from '../hooks/useDevolucionesTotales'
+import usePagosTotals from '../hooks/usePagosTotals'
+import useCajaMovimientosTotals from '../hooks/useCajaMovimientosTotals'
+import useVentasAnuladas from '../hooks/useVentasAnuladas'
 
 export default function CorteCajaTotal({ onBack }: { onBack: () => void }) {
   const { session, loading: sessionLoading, closeSession } = useCajaSession()
-  const [calculating, setCalculating] = useState(false)
 
-  // Detailed Breakdowns
-  const [ingresos, setIngresos] = useState({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-  const [anulaciones, setAnulaciones] = useState({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-  const [devoluciones, setDevoluciones] = useState({ efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 })
-  const [otrosIngresos, setOtrosIngresos] = useState(0) // From caja_movimientos
-  const [otrosEgresos, setOtrosEgresos] = useState(0) // From caja_movimientos
+  // Hooks for data fetching (aligned with CorteCajaParcial)
+  const { totals: pagosTotals, loading: pagosLoading, reload: reloadPagos } = usePagosTotals(session?.fecha_apertura ?? null, session?.usuario ?? null)
+  const { data: cajaMovs, loading: cajaMovsLoading, reload: reloadCajaMovs } = useCajaMovimientosTotals(session?.fecha_apertura ?? null, session?.usuario ?? null)
+  const { data: ventasAnuladas, loading: ventasAnuladasLoading, reload: reloadVentasAnuladas } = useVentasAnuladas(session?.fecha_apertura ?? null, session?.usuario ?? null)
+  const { totals: devolucionesTotals, loading: devolucionesLoading, reload: reloadDevoluciones } = useDevolucionesTotales(session?.fecha_apertura ?? null, session?.usuario ?? null)
 
   // User Input
   const [physicalCount, setPhysicalCount] = useState<number | ''>('')
@@ -21,130 +22,70 @@ export default function CorteCajaTotal({ onBack }: { onBack: () => void }) {
 
   const { hondurasNowISO } = useHondurasTime()
 
+  // Reload data when session changes
   useEffect(() => {
     if (session) {
-      calculateTotals()
+      reloadPagos()
+      reloadCajaMovs()
+      reloadVentasAnuladas()
+      reloadDevoluciones()
     }
-  }, [session])
+  }, [session, reloadPagos, reloadCajaMovs, reloadVentasAnuladas, reloadDevoluciones])
 
-  const calculateTotals = async () => {
-    if (!session) return
-    setCalculating(true)
-    try {
-      const user = session.usuario
-      const since = session.fecha_apertura
+  // Helper to normalize types
+  const normalizeTipo = (s: string = '') => {
+    const t = s.toLowerCase()
+    if (t.includes('efect')) return 'efectivo'
+    if (t.includes('dolar') || t.includes('usd')) return 'dolares'
+    if (t.includes('tarj')) return 'tarjeta'
+    if (t.includes('transfer')) return 'transferencia'
+    return 'efectivo'
+  }
 
-      // 1. Fetch Pagos (Income & Cancellations)
-      const { data: ventas, error: vErr } = await supabase
-        .from('ventas')
-        .select('id')
-        .eq('usuario', user)
-        .gte('fecha_venta', since)
+  // Derived State Calculations
 
-      if (vErr) console.error('Error fetching ventas for ids:', vErr)
+  // 1. Ingresos (Pagos)
+  const ingresos = {
+    efectivo: pagosTotals?.efectivo || 0,
+    tarjeta: pagosTotals?.tarjeta || 0,
+    transferencia: pagosTotals?.transferencia || 0,
+    dolares: pagosTotals?.dolares || 0,
+    total: pagosTotals?.total || 0
+  }
 
-      const newIngresos = { efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 }
-      const newAnulaciones = { efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 }
+  // 2. Anulaciones
+  const anulaciones = { efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 }
+  if (Array.isArray(ventasAnuladas)) {
+    ventasAnuladas.forEach((r: any) => {
+      const cat = normalizeTipo(r.tipo)
+      const monto = Number(r.total_monto || 0)
+      // @ts-ignore
+      if (anulaciones[cat] !== undefined) anulaciones[cat] += monto
+      anulaciones.total += monto
+    })
+  }
 
-      if (ventas && ventas.length > 0) {
-        const ventaIds = ventas.map((v: any) => String(v.id))
+  // 3. Devoluciones
+  const devoluciones = {
+    efectivo: devolucionesTotals?.efectivo || 0,
+    tarjeta: devolucionesTotals?.tarjeta || 0,
+    transferencia: devolucionesTotals?.transferencia || 0,
+    dolares: devolucionesTotals?.dolares || 0,
+    total: devolucionesTotals?.total || 0
+  }
 
-        const { data: pagos, error: pErr } = await supabase
-          .from('pagos')
-          .select('monto, tipo')
-          .in('venta_id', ventaIds)
-
-        if (pErr) console.error('Error fetching pagos:', pErr)
-
-        if (pagos) {
-          pagos.forEach((p: any) => {
-            const monto = Number(p.monto || 0)
-            const tipo = (p.tipo || '').toLowerCase()
-
-            let category: 'efectivo' | 'tarjeta' | 'transferencia' | 'dolares' | null = null
-            if (tipo.includes('efectivo') || tipo === 'cash') category = 'efectivo'
-            else if (tipo.includes('tarjeta') || tipo === 'card') category = 'tarjeta'
-            else if (tipo.includes('transferencia') || tipo === 'transfer') category = 'transferencia'
-            else if (tipo.includes('dolar') || tipo === 'usd') category = 'dolares'
-
-            if (category) {
-              if (monto >= 0) {
-                newIngresos[category] += monto
-                newIngresos.total += monto
-              } else {
-                newAnulaciones[category] += Math.abs(monto)
-                newAnulaciones.total += Math.abs(monto)
-              }
-            }
-          })
-        }
-      }
-      setIngresos(newIngresos)
-      setAnulaciones(newAnulaciones)
-
-      // 2. Fetch Movimientos
-      let movs: any[] = []
-      const tableCandidates = ['caja_movimientos']
-      for (const tbl of tableCandidates) {
-        const { data: mData, error: mErr } = await supabase
-          .from(tbl)
-          .select('monto, tipo_movimiento')
-
-          .eq('usuario', user)
-          .gte('fecha', since)
-
-        if (!mErr && mData) {
-          movs = mData
-          break
-        }
-      }
-
-      let totalIng = 0
-      let totalEgr = 0
-      movs.forEach((m: any) => {
-        const tipo = (m.tipo_movimiento || '').toLowerCase()
-
-        const monto = Number(m.monto || 0)
-        if (tipo === 'ingreso') totalIng += monto
-        if (tipo === 'egreso') totalEgr += monto
-      })
-      setOtrosIngresos(totalIng)
-      setOtrosEgresos(totalEgr)
-
-      // 3. Fetch Devoluciones
-      const { data: devs, error: dErr } = await supabase
-        .from('devoluciones_ventas')
-        .select('total, tipo_devolucion')
-        .eq('usuario', user)
-        .gte('fecha_devolucion', since)
-
-      if (dErr) console.error('Error fetching devoluciones:', dErr)
-
-      const newDevoluciones = { efectivo: 0, tarjeta: 0, transferencia: 0, dolares: 0, total: 0 }
-      if (devs) {
-        devs.forEach((d: any) => {
-          const monto = Number(d.total || 0)
-          const tipo = (d.tipo_devolucion || '').toLowerCase()
-
-          let category: 'efectivo' | 'tarjeta' | 'transferencia' | 'dolares' | null = null
-          if (tipo.includes('efectivo') || tipo === 'devolucion') category = 'efectivo'
-          else if (tipo.includes('tarjeta')) category = 'tarjeta'
-          else if (tipo.includes('transferencia')) category = 'transferencia'
-          else if (tipo.includes('dolar')) category = 'dolares'
-
-          if (category) {
-            newDevoluciones[category] += monto
-            newDevoluciones.total += monto
-          }
-        })
-      }
-      setDevoluciones(newDevoluciones)
-
-    } catch (e) {
-      console.error('Error calculating totals:', e)
-    } finally {
-      setCalculating(false)
-    }
+  // 4. Caja Movimientos (Otros Ingresos / Egresos)
+  let otrosIngresos = 0
+  let otrosEgresos = 0
+  if (Array.isArray(cajaMovs)) {
+    cajaMovs.forEach((r: any) => {
+      const tipo = String(r.tipo_movimiento || '').toLowerCase()
+      const monto = Number(r.total_monto || r.monto || 0)
+      const isEgreso = tipo.includes('egreso') || tipo.includes('salida') || tipo.includes('salir') || tipo.includes('retirada')
+      const isIngreso = tipo.includes('ingreso') || tipo.includes('entrada') || (!isEgreso)
+      if (isEgreso) otrosEgresos += monto
+      else if (isIngreso) otrosIngresos += monto
+    })
   }
 
   const netCashSales = ingresos.efectivo - anulaciones.efectivo
@@ -155,13 +96,7 @@ export default function CorteCajaTotal({ onBack }: { onBack: () => void }) {
     try {
       await closeSession({
         total_ingresos: ingresos.total + otrosIngresos,
-        total_egresos: otrosEgresos + devoluciones.total + anulaciones.total, // Should anulaciones be counted as egresos or just net out income?
-        // Usually, total_ingresos should be gross income, and total_egresos includes returns/cancellations.
-        // Or we can store Net Income. 
-        // Let's store:
-        // total_ingresos = All positive payments + manual inflows
-        // total_egresos = All negative payments (anulaciones) + returns + manual outflows
-        // saldo_final = The theoretical balance calculated.
+        total_egresos: otrosEgresos + devoluciones.total + anulaciones.total,
         saldo_final: saldoTeorico
       })
       alert('Caja cerrada exitosamente.')
@@ -188,6 +123,8 @@ export default function CorteCajaTotal({ onBack }: { onBack: () => void }) {
   const physical = physicalCount === '' ? 0 : physicalCount
   const difference = physical - saldoTeorico
 
+  const isLoadingData = pagosLoading || cajaMovsLoading || ventasAnuladasLoading || devolucionesLoading
+
   return (
     <div style={{ padding: 20, maxWidth: 1000, margin: '24px auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -197,7 +134,10 @@ export default function CorteCajaTotal({ onBack }: { onBack: () => void }) {
             Cerrando sesión de: <strong>{session.usuario}</strong>
           </div>
         </div>
-        <button onClick={onBack} className="btn-opaque">Volver</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {isLoadingData && <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>Actualizando datos...</span>}
+          <button onClick={onBack} className="btn-opaque">Volver</button>
+        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
