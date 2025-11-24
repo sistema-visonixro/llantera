@@ -45,16 +45,25 @@ export default function ProductDetailModal({
       // Normalize possible storage path that contains the public object URL
       // e.g. "/storage/v1/object/public/<BUCKET>/path/to/file.png"
       let objectPath = src;
-      const m = String(src).match(/\/storage\/v1\/object\/public\/([^/]+)\/(.*)/);
+      const m = String(src).match(
+        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+      );
       if (m) {
         objectPath = decodeURIComponent(m[2]);
       }
       // objectPath is already the path inside the bucket (e.g. 'inventario/uuid/file.png')
-      const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || "inventario";
+      const BUCKET =
+        (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) ||
+        "inventario";
       try {
         const sup = (await import("../lib/supabaseClient")).default;
-        const publicRes = await sup.storage.from(BUCKET).getPublicUrl(objectPath);
-        const publicUrl = (publicRes as any)?.data?.publicUrl || (publicRes as any)?.data?.publicURL || null;
+        const publicRes = await sup.storage
+          .from(BUCKET)
+          .getPublicUrl(objectPath);
+        const publicUrl =
+          (publicRes as any)?.data?.publicUrl ||
+          (publicRes as any)?.data?.publicURL ||
+          null;
         if (publicUrl) {
           if (mounted) {
             setImgSrc(publicUrl);
@@ -62,9 +71,14 @@ export default function ProductDetailModal({
           }
           return;
         }
-        const signed = await sup.storage.from(BUCKET).createSignedUrl(objectPath, 60 * 60 * 24 * 7);
+        const signed = await sup.storage
+          .from(BUCKET)
+          .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
         if (signed.error) {
-          console.warn("ProductDetailModal createSignedUrl error", signed.error);
+          console.warn(
+            "ProductDetailModal createSignedUrl error",
+            signed.error
+          );
           if (mounted) setImgSrc(null);
           return;
         }
@@ -92,14 +106,20 @@ export default function ProductDetailModal({
       try {
         const res = await fetch(resolvedUrl, { method: "HEAD" });
         if (!mounted) return;
-        setUrlCheck(`HEAD ${res.status} ${res.statusText} - content-type: ${res.headers.get("content-type")}`);
+        setUrlCheck(
+          `HEAD ${res.status} ${
+            res.statusText
+          } - content-type: ${res.headers.get("content-type")}`
+        );
       } catch (err: any) {
         if (!mounted) return;
         setUrlCheck(`FETCH_ERROR: ${String(err)}`);
       }
     };
     check();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [resolvedUrl]);
 
   return createPortal(
@@ -174,8 +194,15 @@ export default function ProductDetailModal({
                   padding: 8,
                 }}
               >
-                <div style={{ marginBottom: 8, fontWeight: 700 }}>Error cargando imagen</div>
-                <a href={failedUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#b91c1c', wordBreak: 'break-all' }}>
+                <div style={{ marginBottom: 8, fontWeight: 700 }}>
+                  Error cargando imagen
+                </div>
+                <a
+                  href={failedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#b91c1c", wordBreak: "break-all" }}
+                >
                   Abrir imagen
                 </a>
               </div>
@@ -197,7 +224,14 @@ export default function ProductDetailModal({
           </div>
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            gap: 8,
+            justifyContent: "flex-end",
+          }}
+        >
           <button
             type="button"
             className="btn-opaque"
@@ -218,6 +252,7 @@ export default function ProductDetailModal({
         </div>
       </div>
     </div>,
-    (typeof document !== "undefined" && document.body) || document.createElement("div")
+    (typeof document !== "undefined" && document.body) ||
+      document.createElement("div")
   );
 }

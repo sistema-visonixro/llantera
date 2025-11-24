@@ -84,7 +84,9 @@ export default function RecordFormModal({
           type="text"
           className="input"
           value={form[col] ?? ""}
-          onChange={(e) => handleChange(col, e.target.value === "" ? null : e.target.value)}
+          onChange={(e) =>
+            handleChange(col, e.target.value === "" ? null : e.target.value)
+          }
         />
       );
     }

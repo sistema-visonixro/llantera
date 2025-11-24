@@ -56,10 +56,18 @@ export default function SupabaseTable({
       // build query with optional ordering
       let query: any = sup.from(table).select(sel).limit(limit);
       if (order) {
-        const orders: string[] = Array.isArray(order) ? order : String(order).split(",").map((s: string) => s.trim()).filter(Boolean);
+        const orders: string[] = Array.isArray(order)
+          ? order
+          : String(order)
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean);
         orders.forEach((o: string) => {
           // allow optional direction like 'col desc' or 'col asc'
-          const parts = o.split(" ").map((p: string) => p.trim()).filter(Boolean);
+          const parts = o
+            .split(" ")
+            .map((p: string) => p.trim())
+            .filter(Boolean);
           const col = parts[0];
           const dir = parts[1] ? parts[1].toLowerCase() : "asc";
           query = query.order(col, { ascending: dir !== "desc" });
@@ -138,7 +146,8 @@ export default function SupabaseTable({
     try {
       // If there is an image File object, upload it to Supabase Storage first
       const BUCKET =
-        (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || "inventario";
+        (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) ||
+        "inventario";
 
       const payload = { ...formData };
       const oldImage = formMode === "edit" ? formInitial?.imagen ?? null : null;
@@ -155,12 +164,21 @@ export default function SupabaseTable({
       if (payload.imagen && payload.imagen instanceof File) {
         const file: File = payload.imagen;
         // Use a stable-ish filename: table/<id or uuid>/<timestamp>_name.ext
-        const namePrefix = payload.id ?? (crypto && (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()));
-        const filename = `${table}/${namePrefix}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_/]/g, "_")}`;
+        const namePrefix =
+          payload.id ??
+          (crypto && (crypto as any).randomUUID
+            ? (crypto as any).randomUUID()
+            : String(Date.now()));
+        const filename = `${table}/${namePrefix}/${Date.now()}_${file.name.replace(
+          /[^a-zA-Z0-9.\-_/]/g,
+          "_"
+        )}`;
 
-        const uploadRes = await sup.storage.from(BUCKET).upload(filename, file, {
-          upsert: true,
-        });
+        const uploadRes = await sup.storage
+          .from(BUCKET)
+          .upload(filename, file, {
+            upsert: true,
+          });
         if (uploadRes.error) throw uploadRes.error;
         // Save the storage path (more robust). uploadRes.data.path typically contains the stored path.
         // We'll resolve a public/signed URL when rendering.
@@ -180,12 +198,16 @@ export default function SupabaseTable({
       }
 
       // If editing and user cleared the image (set to null), remove old image
-      if (formMode === "edit" && (payload.imagen == null || payload.imagen === "")) {
+      if (
+        formMode === "edit" &&
+        (payload.imagen == null || payload.imagen === "")
+      ) {
         try {
           const oldPath = getStoragePath(formInitial?.imagen ?? null);
           if (oldPath) {
             const rm = await sup.storage.from(BUCKET).remove([oldPath]);
-            if (rm.error) console.warn("Failed to remove old image on clear", rm.error);
+            if (rm.error)
+              console.warn("Failed to remove old image on clear", rm.error);
           }
         } catch (err) {
           console.warn("Error removing old image on clear", err);
@@ -217,7 +239,9 @@ export default function SupabaseTable({
       if (!allowDelete) return;
       // Try to remove the image from storage (if any) before deleting the DB row
       try {
-        const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || "inventario";
+        const BUCKET =
+          (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) ||
+          "inventario";
         const row = data?.find((r) => r.id === deleteId);
         const getStoragePath = (img: string | null) => {
           if (!img) return null;
@@ -231,7 +255,8 @@ export default function SupabaseTable({
         const path = getStoragePath(img);
         if (path) {
           const rm = await sup.storage.from(BUCKET).remove([path]);
-          if (rm.error) console.warn("Failed to remove image on delete", rm.error);
+          if (rm.error)
+            console.warn("Failed to remove image on delete", rm.error);
         }
       } catch (err) {
         console.warn("Error removing image before delete", err);
@@ -303,19 +328,39 @@ export default function SupabaseTable({
               {filtered.map((row, idx) => (
                 <tr key={row.id ?? idx}>
                   {displayedColumns.map((col) => {
-                    
                     // Force render the imagen column using the raw row.imagen value
                     if (col === "imagen") {
                       const val = row?.imagen ?? null;
-                      if (!val) console.debug("SupabaseTable: row has no imagen for id", row?.id, row);
+                      if (!val)
+                        console.debug(
+                          "SupabaseTable: row has no imagen for id",
+                          row?.id,
+                          row
+                        );
                       return (
-                        <td key={col} style={{ maxWidth: 420, wordBreak: 'break-word' as any }}>
-                          {val ? <Thumbnail src={String(val)} /> : <span style={{ color: '#6b7280' }}>-</span>}
+                        <td
+                          key={col}
+                          style={{
+                            maxWidth: 420,
+                            wordBreak: "break-word" as any,
+                          }}
+                        >
+                          {val ? (
+                            <Thumbnail src={String(val)} />
+                          ) : (
+                            <span style={{ color: "#6b7280" }}>-</span>
+                          )}
                         </td>
                       );
                     }
                     return (
-                      <td key={col} style={{ maxWidth: 420, wordBreak: 'break-word' as any }}>
+                      <td
+                        key={col}
+                        style={{
+                          maxWidth: 420,
+                          wordBreak: "break-word" as any,
+                        }}
+                      >
                         {formatCell(row[col])}
                       </td>
                     );
@@ -379,15 +424,38 @@ function formatCell(v: any) {
   if (typeof v === "object") return JSON.stringify(v);
   // Normalize boolean-like values to 'Sí' / 'No'
   if (typeof v === "boolean") return v ? "Sí" : "No";
-  if (typeof v === "number" && (v === 0 || v === 1)) return v === 1 ? "Sí" : "No";
+  if (typeof v === "number" && (v === 0 || v === 1))
+    return v === 1 ? "Sí" : "No";
   // Render small image thumbnails for image URLs
   if (typeof v === "string") {
     const lower = v.toLowerCase().trim();
-    if (lower === "1" || lower === "true" || lower === "t" || lower === "si" || lower === "s" || lower === "yes") return "Sí";
-    if (lower === "0" || lower === "false" || lower === "f" || lower === "no" || lower === "n" || lower === "not") return "No";
+    if (
+      lower === "1" ||
+      lower === "true" ||
+      lower === "t" ||
+      lower === "si" ||
+      lower === "s" ||
+      lower === "yes"
+    )
+      return "Sí";
+    if (
+      lower === "0" ||
+      lower === "false" ||
+      lower === "f" ||
+      lower === "no" ||
+      lower === "n" ||
+      lower === "not"
+    )
+      return "No";
     if (
       (v.startsWith("http") || v.startsWith("/")) &&
-      (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".svg") || lower.includes("/storage/"))
+      (lower.endsWith(".png") ||
+        lower.endsWith(".jpg") ||
+        lower.endsWith(".jpeg") ||
+        lower.endsWith(".gif") ||
+        lower.endsWith(".webp") ||
+        lower.endsWith(".svg") ||
+        lower.includes("/storage/"))
     ) {
       return <Thumbnail src={v} />;
     }
@@ -401,44 +469,57 @@ function Thumbnail({ src }: { src: string }) {
 
   useEffect(() => {
     let mounted = true;
-  const resolve = async () => {
-    if (!src) return;
-    // If src looks like a full URL, use it directly
-    if (src.startsWith("http")) {
-      if (mounted) setImgSrc(src);
-      return;
-    }
-    // Normalize possible storage public path: '/storage/v1/object/public/<BUCKET>/path'
-    let objectPath = src;
-    const m = String(src).match(/\/storage\/v1\/object\/public\/([^/]+)\/(.*)/);
-    if (m) {
-      objectPath = decodeURIComponent(m[2]);
-    }
-    // objectPath is already the path inside the bucket (e.g. 'inventario/uuid/file.png')
-    const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || "inventario";
-    try {
-      const sup = (await import("../lib/supabaseClient")).default;
-      const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) || "inventario";
-      // objectPath is a storage path (e.g. 'inventario/uuid/file.png')
-      const publicRes = await sup.storage.from(BUCKET).getPublicUrl(objectPath);
-      const publicUrl = (publicRes as any)?.data?.publicUrl || (publicRes as any)?.data?.publicURL || null;
-      if (publicUrl) {
-        if (mounted) setImgSrc(publicUrl);
+    const resolve = async () => {
+      if (!src) return;
+      // If src looks like a full URL, use it directly
+      if (src.startsWith("http")) {
+        if (mounted) setImgSrc(src);
         return;
       }
-      const signed = await sup.storage.from(BUCKET).createSignedUrl(objectPath, 60 * 60 * 24 * 7);
-      if (signed.error) {
-        console.warn("Thumbnail createSignedUrl error", signed.error);
+      // Normalize possible storage public path: '/storage/v1/object/public/<BUCKET>/path'
+      let objectPath = src;
+      const m = String(src).match(
+        /\/storage\/v1\/object\/public\/([^/]+)\/(.*)/
+      );
+      if (m) {
+        objectPath = decodeURIComponent(m[2]);
+      }
+      // objectPath is already the path inside the bucket (e.g. 'inventario/uuid/file.png')
+      const BUCKET =
+        (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) ||
+        "inventario";
+      try {
+        const sup = (await import("../lib/supabaseClient")).default;
+        const BUCKET =
+          (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string) ||
+          "inventario";
+        // objectPath is a storage path (e.g. 'inventario/uuid/file.png')
+        const publicRes = await sup.storage
+          .from(BUCKET)
+          .getPublicUrl(objectPath);
+        const publicUrl =
+          (publicRes as any)?.data?.publicUrl ||
+          (publicRes as any)?.data?.publicURL ||
+          null;
+        if (publicUrl) {
+          if (mounted) setImgSrc(publicUrl);
+          return;
+        }
+        const signed = await sup.storage
+          .from(BUCKET)
+          .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
+        if (signed.error) {
+          console.warn("Thumbnail createSignedUrl error", signed.error);
+          if (mounted) setImgSrc(null);
+          return;
+        }
+        const url = (signed.data as any)?.signedUrl ?? null;
+        if (mounted) setImgSrc(url);
+      } catch (err) {
+        console.error("Thumbnail resolve error", err);
         if (mounted) setImgSrc(null);
-        return;
       }
-      const url = (signed.data as any)?.signedUrl ?? null;
-      if (mounted) setImgSrc(url);
-    } catch (err) {
-      console.error("Thumbnail resolve error", err);
-      if (mounted) setImgSrc(null);
-    }
-  };
+    };
     resolve();
     return () => {
       mounted = false;
@@ -448,7 +529,18 @@ function Thumbnail({ src }: { src: string }) {
   // While resolving, render a small placeholder so the table cell stays visible.
   if (!imgSrc && !failedUrl) {
     return (
-      <div style={{ width: 140, height: 80, display: "flex", alignItems: "center", justifyContent: "center", background: '#f3f4f6', color: '#6b7280', borderRadius: 4 }}>
+      <div
+        style={{
+          width: 140,
+          height: 80,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f3f4f6",
+          color: "#6b7280",
+          borderRadius: 4,
+        }}
+      >
         Cargando...
       </div>
     );
@@ -470,8 +562,29 @@ function Thumbnail({ src }: { src: string }) {
 
   // fallback when thumbnail failed to load: show small link/placeholder
   return (
-    <div style={{ width: 140, height: 80, display: "flex", alignItems: "center", justifyContent: "center", background: '#fff7ed', border: '1px dashed #f59e0b', padding: 4 }}>
-      <a href={failedUrl ?? src} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#92400e', textDecoration: 'underline', wordBreak: 'break-all' }}>
+    <div
+      style={{
+        width: 140,
+        height: 80,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fff7ed",
+        border: "1px dashed #f59e0b",
+        padding: 4,
+      }}
+    >
+      <a
+        href={failedUrl ?? src}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          fontSize: 12,
+          color: "#92400e",
+          textDecoration: "underline",
+          wordBreak: "break-all",
+        }}
+      >
         Abrir imagen
       </a>
     </div>

@@ -1,127 +1,177 @@
-import React, { useEffect, useState } from 'react'
-import supabase from '../lib/supabaseClient'
+import React, { useEffect, useState } from "react";
+import supabase from "../lib/supabaseClient";
+import Confirmado from "../components/Confirmado";
 
 export default function UsuariosCajeros() {
-  const [users, setUsers] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [createUsername, setCreateUsername] = useState('')
-  const [createPassword, setCreatePassword] = useState('')
-  const [createName, setCreateName] = useState('')
-  const [editId, setEditId] = useState<number | null>(null)
-  const [editUsername, setEditUsername] = useState('')
-  const [editPassword, setEditPassword] = useState('')
-  const [editName, setEditName] = useState('')
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [createUsername, setCreateUsername] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editUsername, setEditUsername] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editName, setEditName] = useState("");
 
   async function loadUsers() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase.from('users').select('id, username, role, nombre_usuario').limit(1000)
-      if (error) throw error
-      setUsers(Array.isArray(data) ? data : [])
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, username, role, nombre_usuario")
+        .limit(1000);
+      if (error) throw error;
+      setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      setError(err?.message || String(err))
-      setUsers([])
+      setError(err?.message || String(err));
+      setUsers([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function createUser() {
-    if (!createUsername) return setError('Ingrese un nombre de usuario para crear')
-    if (!createPassword) return setError('Ingrese una contraseña para crear')
-    setLoading(true)
-    setError(null)
+    if (!createUsername)
+      return setError("Ingrese un nombre de usuario para crear");
+    if (!createPassword) return setError("Ingrese una contraseña para crear");
+    setLoading(true);
+    setError(null);
     try {
-      const payload: any = { username: createUsername, password: createPassword, role: 'cajero' }
-      if (createName) payload.nombre_usuario = createName
-      const { error } = await supabase.from('users').insert(payload)
-      if (error) throw error
-      setCreateUsername('')
-      setCreatePassword('')
-      setCreateName('')
-      await loadUsers()
+      const payload: any = {
+        username: createUsername,
+        password: createPassword,
+        role: "cajero",
+      };
+      if (createName) payload.nombre_usuario = createName;
+      const { error } = await supabase.from("users").insert(payload);
+      if (error) throw error;
+      setCreateUsername("");
+      setCreatePassword("");
+      setCreateName("");
+      await loadUsers();
     } catch (err: any) {
-      setError(err?.message || String(err))
+      setError(err?.message || String(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   function startEdit(u: any) {
-    setEditId(u.id)
-    setEditUsername(u.username || '')
-    setEditName(u.nombre_usuario || '')
-    setEditPassword('')
-    setError(null)
+    setEditId(u.id);
+    setEditUsername(u.username || "");
+    setEditName(u.nombre_usuario || "");
+    setEditPassword("");
+    setError(null);
   }
 
   function cancelEdit() {
-    setEditId(null)
-    setEditUsername('')
-    setEditPassword('')
-    setEditName('')
-    setError(null)
+    setEditId(null);
+    setEditUsername("");
+    setEditPassword("");
+    setEditName("");
+    setError(null);
   }
 
   async function saveEdit() {
-    if (editId == null) return
-    if (!editUsername) return setError('El nombre de usuario no puede estar vacío')
-    setLoading(true)
-    setError(null)
+    if (editId == null) return;
+    if (!editUsername)
+      return setError("El nombre de usuario no puede estar vacío");
+    setLoading(true);
+    setError(null);
     try {
-      const payload: any = { username: editUsername }
-      if (editPassword) payload.password = editPassword
-      payload.nombre_usuario = editName || null
-      const { error } = await supabase.from('users').update(payload).eq('id', editId)
-      if (error) throw error
-      cancelEdit()
-      await loadUsers()
+      const payload: any = { username: editUsername };
+      if (editPassword) payload.password = editPassword;
+      payload.nombre_usuario = editName || null;
+      const { error } = await supabase
+        .from("users")
+        .update(payload)
+        .eq("id", editId);
+      if (error) throw error;
+      cancelEdit();
+      await loadUsers();
     } catch (err: any) {
-      setError(err?.message || String(err))
+      setError(err?.message || String(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function deleteUser(id: number, role: string) {
-    if (role !== 'cajero') return setError('Solo se pueden eliminar usuarios con role "cajero"')
-    if (!confirm('¿Eliminar este usuario? Esta acción no se puede deshacer.')) return
-    setLoading(true)
-    setError(null)
+    if (role !== "cajero")
+      return setError('Solo se pueden eliminar usuarios con role "cajero"');
+    // open modal confirmation
+    setError(null);
+    setConfirmDeleteId(id);
+    setConfirmDeleteOpen(true);
+  }
+
+  // delete modal state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function performDeleteUser() {
+    if (confirmDeleteId == null) return;
+    setLoading(true);
+    setError(null);
     try {
-      const { error } = await supabase.from('users').delete().eq('id', id)
-      if (error) throw error
-      await loadUsers()
+      const { error } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", confirmDeleteId);
+      if (error) throw error;
+      await loadUsers();
+      setConfirmDeleteOpen(false);
+      setSuccessOpen(true);
     } catch (err: any) {
-      setError(err?.message || String(err))
+      setError(err?.message || String(err));
+      setErrorMessage(err?.message || String(err));
+      setErrorOpen(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      if (!mounted) return
-      await loadUsers()
-    })()
-    return () => { mounted = false }
-  }, [])
+    let mounted = true;
+    (async () => {
+      if (!mounted) return;
+      await loadUsers();
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const filtered = users.filter(u => {
-    if (!search) return true
-    const s = search.toLowerCase()
-    return (u.username || '').toLowerCase().includes(s) || (String(u.id) || '').includes(s) || (u.role || '').toLowerCase().includes(s) || (u.nombre_usuario || '').toLowerCase().includes(s)
-  })
+  const filtered = users.filter((u) => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (
+      (u.username || "").toLowerCase().includes(s) ||
+      (String(u.id) || "").includes(s) ||
+      (u.role || "").toLowerCase().includes(s) ||
+      (u.nombre_usuario || "").toLowerCase().includes(s)
+    );
+  });
 
   return (
     <div style={{ padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Usuarios Cajeros</h2>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          marginBottom: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <input
           placeholder="Buscar usuario o rol..."
           className="input"
@@ -129,23 +179,52 @@ export default function UsuariosCajeros() {
           onChange={(e) => setSearch(e.target.value)}
           style={{ minWidth: 220 }}
         />
-        <button onClick={() => loadUsers()} className="btn-opaque">Recargar</button>
-        <div style={{ marginLeft: 'auto', color: '#64748b' }}>{loading ? 'Cargando...' : `${filtered.length} usuarios`}</div>
+        <button onClick={() => loadUsers()} className="btn-opaque">
+          Recargar
+        </button>
+        <div style={{ marginLeft: "auto", color: "#64748b" }}>
+          {loading ? "Cargando..." : `${filtered.length} usuarios`}
+        </div>
 
-        <div style={{ width: '100%', height: 8 }} />
+        <div style={{ width: "100%", height: 8 }} />
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input placeholder="Nuevo usuario" className="input" value={createUsername} onChange={(e) => setCreateUsername(e.target.value)} />
-          <input placeholder="Nombre" className="input" value={createName} onChange={(e) => setCreateName(e.target.value)} />
-          <input placeholder="Contraseña" className="input" type="password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
-          <button onClick={() => createUser()} className="btn-primary">Crear (role: cajero)</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            placeholder="Nuevo usuario"
+            className="input"
+            value={createUsername}
+            onChange={(e) => setCreateUsername(e.target.value)}
+          />
+          <input
+            placeholder="Nombre"
+            className="input"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+          />
+          <input
+            placeholder="Contraseña"
+            className="input"
+            type="password"
+            value={createPassword}
+            onChange={(e) => setCreatePassword(e.target.value)}
+          />
+          <button onClick={() => createUser()} className="btn-primary">
+            Crear (role: cajero)
+          </button>
         </div>
       </div>
 
       {error ? (
-        <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>
+        <div style={{ color: "red", marginBottom: 12 }}>{error}</div>
       ) : (
-        <div style={{ background: '#fff', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
+        <div
+          style={{
+            background: "#fff",
+            padding: 12,
+            borderRadius: 8,
+            overflowX: "auto",
+          }}
+        >
           <table className="admin-table">
             <thead>
               <tr>
@@ -156,43 +235,85 @@ export default function UsuariosCajeros() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
+              {filtered.map((u) => (
                 <tr key={u.id}>
                   <td style={{ width: 80 }}>{u.id}</td>
                   <td style={{ minWidth: 180 }}>
                     {editId === u.id ? (
-                      <input className="input" value={editUsername} onChange={e => setEditUsername(e.target.value)} />
+                      <input
+                        className="input"
+                        value={editUsername}
+                        onChange={(e) => setEditUsername(e.target.value)}
+                      />
                     ) : (
-                      u.username || '-'
+                      u.username || "-"
                     )}
                   </td>
                   <td style={{ minWidth: 180 }}>
                     {editId === u.id ? (
-                      <input className="input" value={editName} onChange={e => setEditName(e.target.value)} />
+                      <input
+                        className="input"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
                     ) : (
-                      u.nombre_usuario || '-'
+                      u.nombre_usuario || "-"
                     )}
                   </td>
                   <td style={{ width: 220 }}>
                     {editId === u.id ? (
-                      <input className="input" placeholder="Nueva contraseña (opcional)" type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} />
+                      <input
+                        className="input"
+                        placeholder="Nueva contraseña (opcional)"
+                        type="password"
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                      />
                     ) : (
-                      u.role || '-'
+                      u.role || "-"
                     )}
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td style={{ whiteSpace: "nowrap" }}>
                     {editId === u.id ? (
                       <>
-                        <button onClick={() => saveEdit()} className="btn-primary" style={{ marginRight: 6 }}>Guardar</button>
-                        <button onClick={() => cancelEdit()} className="btn-opaque">Cancelar</button>
+                        <button
+                          onClick={() => saveEdit()}
+                          className="btn-primary"
+                          style={{ marginRight: 6 }}
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => cancelEdit()}
+                          className="btn-opaque"
+                        >
+                          Cancelar
+                        </button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => startEdit(u)} className="btn-opaque" style={{ marginRight: 6 }}>Editar</button>
-                        {u.role === 'cajero' ? (
-                          <button onClick={() => deleteUser(u.id, u.role)} className="btn-danger">Eliminar</button>
+                        <button
+                          onClick={() => startEdit(u)}
+                          className="btn-opaque"
+                          style={{ marginRight: 6 }}
+                        >
+                          Editar
+                        </button>
+                        {u.role === "cajero" ? (
+                          <button
+                            onClick={() => deleteUser(u.id, u.role)}
+                            className="btn-danger"
+                          >
+                            Eliminar
+                          </button>
                         ) : (
-                          <button className="btn-opaque" disabled title="No se puede eliminar usuarios admin">Eliminar</button>
+                          <button
+                            className="btn-opaque"
+                            disabled
+                            title="No se puede eliminar usuarios admin"
+                          >
+                            Eliminar
+                          </button>
                         )}
                       </>
                     )}
@@ -201,9 +322,34 @@ export default function UsuariosCajeros() {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && !loading && <div style={{ padding: 12 }}>No se encontraron usuarios.</div>}
+          {filtered.length === 0 && !loading && (
+            <div style={{ padding: 12 }}>No se encontraron usuarios.</div>
+          )}
         </div>
       )}
+
+      <Confirmado
+        open={confirmDeleteOpen}
+        title="Confirmar eliminación"
+        message="¿Eliminar este usuario? Esta acción no se puede deshacer."
+        onClose={() => setConfirmDeleteOpen(false)}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={async () => {
+          await performDeleteUser();
+        }}
+      />
+      <Confirmado
+        open={successOpen}
+        title="Usuario eliminado"
+        message="El usuario fue eliminado correctamente."
+        onClose={() => setSuccessOpen(false)}
+      />
+      <Confirmado
+        open={errorOpen}
+        title="Error"
+        message={errorMessage}
+        onClose={() => setErrorOpen(false)}
+      />
     </div>
-  )
+  );
 }
