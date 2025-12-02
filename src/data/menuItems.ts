@@ -17,7 +17,7 @@ export const menuItems: any[] = [
       { id: 'facturas', label: 'Facturas (ventas)' },
       { id: 'anulacion_factura', label: 'Anulación de factura' },
       { id: 'notas_credito', label: 'Notas de crédito' },
-      { id: 'historial_facturas', label: 'Historial de facturas' },
+      
       { id: 'impuestos', label: 'Impuestos' }
     ]
   },
@@ -31,7 +31,7 @@ export const menuItems: any[] = [
       { id: 'precios_historico', label: 'Histórico de precios' },
       { id: 'stock', label: 'Stock' },
       { id: 'inventario_salidas', label: 'Movimiento de Inventario' },
-      { id: 'inventario_categorias', label: 'Categorías / Marcas (opcional)' }
+      
     ]
   },
   {
@@ -39,7 +39,7 @@ export const menuItems: any[] = [
     label: 'Compras y Proveedores',
     children: [
       { id: 'compras_main', label: 'Compras (compras)' },
-      { id: 'compras_detalle', label: 'Detalle de Compras (Líneas)' },
+      
       { id: 'proveedores', label: 'Proveedores (proveedores)' },
       { id: 'devoluciones_proveedores', label: 'Devolución a Proveedores' }
     ]

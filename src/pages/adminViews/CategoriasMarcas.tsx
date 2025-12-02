@@ -1,10 +1,10 @@
-import React from 'react'
+import React from 'react';
 
 export default function CategoriasMarcas() {
   return (
     <div style={{ padding: 18 }}>
-      <h2 style={{ marginTop: 0 }}>Categorías / Marcas (opcional)</h2>
-      <p style={{ color: '#475569' }}>Gestión de categorías y marcas. (Placeholder)</p>
+      <h2 style={{ marginTop: 0 }}>Vista eliminada</h2>
+      <p style={{ color: '#64748b' }}>La vista de "Categorías / Marcas" ha sido eliminada del menú. Si necesitas restaurarla, házmelo saber.</p>
     </div>
-  )
+  );
 }

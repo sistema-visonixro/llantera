@@ -10,6 +10,7 @@ import UsuariosWeb from './adminViews/UsuariosWeb';
 import UsuariosCajeros from './UsuariosCajeros'
 import CAI from './adminViews/CAI';
 import Facturas from './adminViews/Facturas';
+// HistorialFacturas view intentionally removed from menu; component kept as stub
 import HistorialFacturas from './adminViews/HistorialFacturas';
 import NotasCreditoView from './adminViews/NotasCredito';
 import InventarioTable from './adminViews/InventarioTable'
@@ -17,7 +18,6 @@ import Precios from './adminViews/Precios'
 import PreciosHistorico from './adminViews/PreciosHistorico'
 import Stock from './adminViews/Stock'
 import EntradasSalidas from './adminViews/EntradasSalidas';
-import CategoriasMarcas from './adminViews/CategoriasMarcas';
 import AnulacionFactura from './adminViews/AnulacionFactura';
 import SesionesCaja from './adminViews/SesionesCaja';
 import MovimientosCaja from './adminViews/MovimientosCaja';
@@ -47,14 +47,14 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   usuarios_web: UsuariosWeb,
   cai: CAIView,
   facturas: Facturas,
-  historial_facturas: HistorialFacturas,
+  
   inventario_productos: InventarioTable,
   registro_producto: RegistroProducto,
   precios_productos: Precios,
   precios_historico: PreciosHistorico,
   stock: Stock,
   inventario_salidas: EntradasSalidas,
-  inventario_categorias: CategoriasMarcas,
+  
   proveedores: Proveedores,
   // ... (Añadir el resto de mapeos de sub_id a componentes)
   caja_sesiones: SesionesCaja,
