@@ -1042,27 +1042,38 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
     // compute sub_exonerado/sub_exento/sub_gravado from carrito
     try {
-      let se = 0;
-      let sx = 0;
-      let sg = 0;
-      // if cliente is marked exonerado, all taxable amounts are exonerado
+      let se = 0; // sub_exonerado
+      let sx = 0; // sub_exento
+      let sg = 0; // sub_gravado (net taxable = gross - tax portion)
       const clienteIsExonerado = Boolean(clienteExonerado);
       for (const it of carrito) {
         const price = Number(it.producto.precio || 0);
         const qty = Number(it.cantidad || 0);
         const lineGross = price * qty;
         const prodExento = Boolean((it.producto as any).exento);
-        if (clienteIsExonerado) {
-          se += lineGross;
-        } else if (prodExento) {
+        const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
+        const aplicaTur = Boolean((it.producto as any).aplica_impuesto_turistico);
+
+        // determine applicable rates (same as tax extraction used elsewhere)
+        const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
+        const turRate = aplicaTur ? taxTouristRate || 0 : 0;
+        const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
+        const taxAmount = combined > 0 ? lineGross - lineGross / (1 + combined) : 0;
+
+        if (prodExento) {
+          // exentos: subtotal is full gross price
           sx += lineGross;
+        } else if (clienteIsExonerado) {
+          // cliente exonerado: store net value (gross - taxes) under sub_exonerado
+          se += Math.max(0, lineGross - taxAmount);
         } else {
-          sg += lineGross;
+          // gravado: store net taxable (gross - taxes)
+          sg += Math.max(0, lineGross - taxAmount);
         }
       }
-      ventaPayload.sub_exonerado = Number(se || 0);
-      ventaPayload.sub_exento = Number(sx || 0);
-      ventaPayload.sub_gravado = Number(sg || 0);
+      ventaPayload.sub_exonerado = Number(Number(se || 0).toFixed(6));
+      ventaPayload.sub_exento = Number(Number(sx || 0).toFixed(6));
+      ventaPayload.sub_gravado = Number(Number(sg || 0).toFixed(6));
     } catch (e) {
       console.debug('Error computing sub_* for ventaPayload', e);
     }
