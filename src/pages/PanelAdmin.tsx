@@ -36,6 +36,7 @@ import ComprasMain from './adminViews/ComprasMain';
 import DevolucionesProveedores from './adminViews/DevolucionesProveedores';
 import Impuestos from './adminViews/Impuestos';
 import RegistroProducto from './adminViews/RegistroProducto';
+import Cotizaciones from './adminViews/Cotizaciones';
 
 
 // Mapeo de IDs de menú a componentes para renderizado dinámico
@@ -72,6 +73,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   impuestos: Impuestos,
   notas_credito: NotasCreditoView,
   anulacion_factura: AnulacionFactura,
+  cotizaciones: Cotizaciones,
   // Para los que solo tienen una sub-opción, podemos mapear el parent-id al componente por defecto si es necesario
   // o confiar en el placeholder si el subActive no está definido.
 };

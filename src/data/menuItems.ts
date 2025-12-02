@@ -15,6 +15,7 @@ export const menuItems: any[] = [
     children: [
       { id: 'cai', label: 'Gestio de CAI por cajas' },
       { id: 'facturas', label: 'Facturas (ventas)' },
+      { id: 'cotizaciones', label: 'Cotizaciones (cotizaciones)' },
       { id: 'anulacion_factura', label: 'Anulación de factura' },
       { id: 'notas_credito', label: 'Notas de crédito' },
       
@@ -62,14 +63,9 @@ export const menuItems: any[] = [
     ]
   },
   {
-    id: 'cotizaciones',
-    label: 'Cotizaciones',
-    children: [
-      { id: 'cotizaciones', label: 'Cotizaciones (cotizaciones)' },
-      { id: 'cotizaciones_detalle', label: 'Detalle de cotizaciones (cotizaciones_detalle)' }
-    ]
-  },
-  {
+  
+    // Submenu removed; items moved under 'factura'
+  
     id: 'reportes',
     label: 'Reportes',
     children: [
