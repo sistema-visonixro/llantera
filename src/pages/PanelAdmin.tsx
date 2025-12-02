@@ -32,6 +32,7 @@ import LibroDiario from './adminViews/LibroDiario';
 import Auditoria from './adminViews/Auditoria';
 import CAIView from './adminViews/CAI';
 import Proveedores from './adminViews/Proveedores';
+import Clientes from './adminViews/Clientes';
 import ComprasMain from './adminViews/ComprasMain';
 import DevolucionesProveedores from './adminViews/DevolucionesProveedores';
 import Impuestos from './adminViews/Impuestos';
@@ -57,6 +58,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   inventario_salidas: EntradasSalidas,
   
   proveedores: Proveedores,
+  clientes: Clientes,
   // ... (Añadir el resto de mapeos de sub_id a componentes)
   caja_sesiones: SesionesCaja,
   caja_movimientos: MovimientosCaja,

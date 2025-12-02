@@ -6,7 +6,8 @@ export const menuItems: any[] = [
     label: 'Usuarios / Cajeros',
     children: [
       { id: 'usuarios_internal', label: 'Usuarios Cajeros' },
-      { id: 'usuarios_web', label: 'Usuarios web (usuarios_web)' }
+      { id: 'usuarios_web', label: 'Usuarios web (usuarios_web)' },
+      { id: 'clientes', label: 'Clientes (clientes)' }
     ]
   },
   {
