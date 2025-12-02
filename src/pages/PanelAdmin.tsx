@@ -18,6 +18,7 @@ import PreciosHistorico from './adminViews/PreciosHistorico'
 import Stock from './adminViews/Stock'
 import EntradasSalidas from './adminViews/EntradasSalidas';
 import CategoriasMarcas from './adminViews/CategoriasMarcas';
+import AnulacionFactura from './adminViews/AnulacionFactura';
 import SesionesCaja from './adminViews/SesionesCaja';
 import MovimientosCaja from './adminViews/MovimientosCaja';
 // ... otros imports de Compras, Pedidos, Cotizaciones, Reportes, Contaduría
@@ -68,6 +69,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
   auditoria: Auditoria,
   impuestos: Impuestos,
   notas_credito: NotasCreditoView,
+  anulacion_factura: AnulacionFactura,
   // Para los que solo tienen una sub-opción, podemos mapear el parent-id al componente por defecto si es necesario
   // o confiar en el placeholder si el subActive no está definido.
 };
