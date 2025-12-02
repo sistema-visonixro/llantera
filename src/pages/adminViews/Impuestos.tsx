@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import supabase from '../../lib/supabaseClient'
+import { Edit, Save, X, Check } from 'lucide-react'
 
 type Impuesto = {
   id: number
@@ -17,7 +18,9 @@ export default function Impuestos() {
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const fetchAll = async () => {
     setLoading(true)
@@ -38,20 +41,41 @@ export default function Impuestos() {
     fetchAll()
   }, [])
 
-  const handleChange = (id: number, value: string) => {
-    setItems(prev => prev.map(it => it.id === id ? { ...it, impuesto_venta: value } : it))
+  const startEditing = (item: Impuesto) => {
+    setEditingId(item.id)
+    setEditValue(item.impuesto_venta || '')
+    setError(null)
+    setSuccessMsg(null)
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditValue('')
+    setError(null)
   }
 
   const save = async (id: number) => {
-    const row = items.find(i => i.id === id)
-    if (!row) return
+    // Validation: check if it's a valid number
+    const val = parseFloat(editValue)
+    if (isNaN(val) || val < 0) {
+      setError('Por favor ingrese un valor numérico válido (ej. 0.15)')
+      return
+    }
+
     setSavingId(id)
     setError(null)
+    setSuccessMsg(null)
     try {
-      const payload: any = { impuesto_venta: row.impuesto_venta ?? null }
+      const payload = { impuesto_venta: editValue }
       const { error } = await supabase.from('impuesto').update(payload).eq('id', id)
       if (error) throw error
+
+      setSuccessMsg('Impuesto actualizado correctamente')
+      setEditingId(null)
       await fetchAll()
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMsg(null), 3000)
     } catch (e: any) {
       console.warn('Error guardando impuesto:', e)
       setError(String(e.message || e))
@@ -61,52 +85,133 @@ export default function Impuestos() {
   }
 
   return (
-    <div>
-      <h2>Impuestos</h2>
-      <p style={{ color: '#475569' }}>Edite los valores de impuestos. Solo se permite actualizar registros existentes.</p>
+    <div style={{ padding: 20 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Impuestos</h2>
+      <p style={{ color: '#64748b', marginBottom: 24 }}>
+        Administre los porcentajes de impuestos del sistema.
+      </p>
 
-      {loading ? (<div>Cargando...</div>) : (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {items.map(it => (
-            <div key={it.id} style={{ width: 300, borderRadius: 8, padding: 12, background: 'white', boxShadow: '0 6px 18px rgba(2,6,23,0.06)' }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>{idToLabel[it.id] ?? `Impuesto #${it.id}`}</div>
-              <div style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>ID: {it.id}</div>
-
-              <div style={{ marginBottom: 8 }}>
-                <label style={{ fontSize: 12, color: '#334155' }}>Impuesto (porcentaje)</label>
-                <input
-                  type="text"
-                  value={it.impuesto_venta ?? ''}
-                  onChange={e => handleChange(it.id, e.target.value)}
-                  style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #e2e8f0' }}
-                  disabled={editingId !== it.id}
-                />
-                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>{editingId === it.id ? 'Ahora puede editar. ' : 'Pulse "Actualizar" para habilitar edición'}</div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                <div style={{ color: '#94a3b8', fontSize: 12 }}>{savingId === it.id ? 'Guardando...' : ''}</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {editingId === it.id ? (
-                    <>
-                      <button onClick={() => { setEditingId(null); fetchAll() }} className="btn-opaque" style={{ background: 'transparent' }}>Cancelar</button>
-                      <button onClick={() => save(it.id)} className="btn-opaque" disabled={savingId === it.id} style={{ opacity: savingId === it.id ? 0.6 : 1 }}>Guardar</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setEditingId(it.id)} className="btn-opaque">Actualizar</button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {items.length === 0 && (
-            <div style={{ color: '#64748b' }}>No hay registros en la tabla `impuesto`.</div>
-          )}
+      {error && (
+        <div style={{
+          marginBottom: 16,
+          padding: '10px 14px',
+          background: '#fef2f2',
+          color: '#b91c1c',
+          borderRadius: 6,
+          border: '1px solid #fecaca'
+        }}>
+          {error}
         </div>
       )}
 
-      {error && <div style={{ marginTop: 12, color: 'red' }}>Error: {error}</div>}
+      {successMsg && (
+        <div style={{
+          marginBottom: 16,
+          padding: '10px 14px',
+          background: '#f0fdf4',
+          color: '#15803d',
+          borderRadius: 6,
+          border: '1px solid #bbf7d0'
+        }}>
+          {successMsg}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: '#64748b' }}>Cargando datos...</div>
+      ) : (
+        <div style={{ overflowX: 'auto', background: 'white', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th style={{ width: 80 }}>ID</th>
+                <th>Descripción</th>
+                <th style={{ width: 200 }}>Valor (Decimal)</th>
+                <th style={{ width: 120, textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => {
+                const isEditing = editingId === item.id
+                const isSaving = savingId === item.id
+
+                return (
+                  <tr key={item.id}>
+                    <td style={{ color: '#64748b' }}>{item.id}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      {idToLabel[item.id] ?? `Impuesto Desconocido #${item.id}`}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          className="input"
+                          style={{ padding: '6px 10px', width: '100%', maxWidth: 150 }}
+                          placeholder="0.00"
+                          autoFocus
+                          disabled={isSaving}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') save(item.id)
+                            if (e.key === 'Escape') cancelEditing()
+                          }}
+                        />
+                      ) : (
+                        <span style={{ fontFamily: 'monospace', fontSize: 14 }}>
+                          {item.impuesto_venta ?? '-'}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={cancelEditing}
+                              className="btn-opaque"
+                              style={{ background: '#f1f5f9', color: '#475569', padding: 6 }}
+                              title="Cancelar"
+                              disabled={isSaving}
+                            >
+                              <X size={16} />
+                            </button>
+                            <button
+                              onClick={() => save(item.id)}
+                              className="btn-primary"
+                              style={{ padding: 6 }}
+                              title="Guardar"
+                              disabled={isSaving}
+                            >
+                              {isSaving ? <span style={{ fontSize: 12 }}>...</span> : <Check size={16} />}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => startEditing(item)}
+                            className="btn-opaque"
+                            style={{ background: 'transparent', color: '#64748b', padding: 6, border: '1px solid #e2e8f0' }}
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: '#94a3b8' }}>
+                    No se encontraron registros de impuestos.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
