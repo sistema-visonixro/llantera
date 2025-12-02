@@ -93,7 +93,7 @@ export default function RepVentas() {
         for (const d of dets) {
           const cantidad = Number(d.cantidad || 0);
           const precio = Number(d.precio_unitario ?? d.precio ?? 0);
-          const lineGross = Number(d.subtotal ?? (cantidad * precio) ?? 0);
+          const lineGross = d.subtotal != null ? Number(d.subtotal) : Number(cantidad * precio);
 
           const prod = productosMap[String(d.producto_id)] || {};
           const prodFromDetalle = tryParseProducto(d.producto);

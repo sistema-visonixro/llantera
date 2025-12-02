@@ -136,7 +136,7 @@ export default function Cotizaciones() {
         const sku = it.sku || (it.producto && it.producto.sku) || '';
         const cantidad = Number(it.cantidad || it.cantidad_producto || 0);
         const precioUnit = Number(it.precio_unitario ?? it.precio ?? (it.producto && (it.producto.precio ?? it.producto.precio_unitario)) ?? 0);
-        const subtotal = Number(it.subtotal ?? (cantidad * precioUnit) ?? 0);
+        const subtotal = it.subtotal != null ? Number(it.subtotal) : Number(cantidad * precioUnit);
         return {
           producto: { nombre, descripcion, sku, precio: precioUnit },
           descripcion,
@@ -317,7 +317,7 @@ export default function Cotizaciones() {
                       const sku = it.sku || (it.producto && it.producto.sku) || '';
                       const cantidad = Number(it.cantidad || it.cantidad_producto || 0);
                       const precio = Number(it.precio_unitario ?? it.precio ?? (it.producto && (it.producto.precio ?? it.producto.precio_unitario)) ?? 0);
-                      const subtotal = Number(it.subtotal ?? (cantidad * precio) ?? 0);
+                      const subtotal = it.subtotal != null ? Number(it.subtotal) : Number(cantidad * precio);
                       return (
                         <tr key={it.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: 8 }}>
