@@ -2890,13 +2890,67 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        fontFamily: "system-ui, sans-serif",
-        background: "#f8fafc",
-      }}
-    >
+    <>
+      <style>
+        {`
+          @media (max-width: 1024px) {
+            .pdv-grid {
+              grid-template-columns: 1fr 1fr !important;
+              gap: 12px !important;
+            }
+            .pdv-cart {
+              max-height: 65vh !important;
+            }
+            .pdv-table-container {
+              max-height: 65vh !important;
+              min-height: 50vh !important;
+            }
+            .pdv-table-container table th {
+              padding: 8px 6px !important;
+              font-size: 0.75rem !important;
+            }
+            .pdv-table-container table td {
+              padding: 6px 5px !important;
+              font-size: 0.8rem !important;
+            }
+            .pdv-buttons {
+              flex-wrap: wrap !important;
+              justify-content: center !important;
+              padding: 8px 12px !important;
+            }
+            .pdv-button {
+              flex: 1 1 100px !important;
+              min-width: 100px !important;
+              padding: 6px 12px !important;
+              font-size: 11px !important;
+            }
+          }
+          @media (max-width: 768px) {
+            .pdv-grid {
+              grid-template-columns: 1fr !important;
+            }
+            .pdv-search-bar {
+              flex-direction: column !important;
+            }
+            .pdv-search-bar input,
+            .pdv-search-bar select {
+              width: 100% !important;
+              min-width: 100% !important;
+            }
+            .pdv-button {
+              padding: 8px 14px !important;
+              font-size: 11px !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        style={{
+          minHeight: "100vh",
+          fontFamily: "system-ui, sans-serif",
+          background: "#f8fafc",
+        }}
+      >
       {/* Header */}
       <HeaderBar
         userName={userName}
@@ -2914,6 +2968,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       <div style={{ padding: 16, maxWidth: 1600, margin: "0 auto" }}>
         {/* Buscador y Filtro */}
         <div
+          className="pdv-search-bar"
           style={{
             background: "white",
             padding: 14,
@@ -2987,16 +3042,21 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
         {/* Layout de 2 columnas: Tabla + Carrito */}
         <div
+          className="pdv-grid"
           style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16 }}
         >
           {/* TABLA DE PRODUCTOS (componente separado) */}
           <div
+            className="pdv-table-container"
             style={{
               background: "white",
               borderRadius: 10,
               overflow: "hidden",
               boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-              minHeight: "60vh",
+              minHeight: "50vh",
+              maxHeight: "70vh",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <ProductTable
@@ -3010,6 +3070,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
             />
             {/* Botones de filtro por tipo */}
             <div
+              className="pdv-buttons"
               style={{
                 padding: "12px 16px",
                 background: "#f8fafc",
@@ -3020,6 +3081,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               }}
             >
               <button
+                className="pdv-button"
                 onClick={() => setTipoFiltro("producto")}
                 style={{
                   padding: "8px 20px",
@@ -3038,6 +3100,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 📦 Producto
               </button>
               <button
+                className="pdv-button"
                 onClick={() => setTipoFiltro("servicio")}
                 style={{
                   padding: "8px 20px",
@@ -3056,6 +3119,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 ⚙️ Servicio
               </button>
               <button
+                className="pdv-button"
                 onClick={() => setShowEntradaManualModal(true)}
                 style={{
                   padding: "8px 20px",
@@ -3342,6 +3406,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         />
       )}
     </div>
+    </>
   );
 }
 
