@@ -78,6 +78,20 @@ export default function RecordFormModal({
       );
     }
 
+    // Select para campo tipo
+    if (col === "tipo") {
+      return (
+        <select
+          className="input"
+          value={form[col] || "producto"}
+          onChange={(e) => handleChange(col, e.target.value)}
+        >
+          <option value="producto">📦 Producto</option>
+          <option value="servicio">⚙️ Servicio</option>
+        </select>
+      );
+    }
+
     if (col.includes("categoria") || col.includes("marca")) {
       return (
         <input

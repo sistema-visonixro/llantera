@@ -38,6 +38,7 @@ type Producto = {
   aplica_impuesto_turistico?: boolean;
   stock?: number;
   imagen?: string;
+  tipo?: "producto" | "servicio";
 };
 
 type ItemCarrito = {
@@ -59,6 +60,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState("Todas");
+  const [tipoFiltro, setTipoFiltro] = useState<"producto" | "servicio">(
+    "producto"
+  );
+  const [showEntradaManualModal, setShowEntradaManualModal] = useState(false);
   const [taxRate, setTaxRate] = useState<number>(0.15); // default ISV 15%
   const [tax18Rate, setTax18Rate] = useState<number>(0); // default 0.18 (18%)
   const [taxTouristRate, setTaxTouristRate] = useState<number>(0); // default 0.04 (4%)
@@ -77,7 +82,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         String(p.sku || "")
           .toLowerCase()
           .includes(busqueda.toLowerCase())) &&
-      (categoriaFiltro === "Todas" || p.categoria === categoriaFiltro)
+      (categoriaFiltro === "Todas" || p.categoria === categoriaFiltro) &&
+      (p.tipo === tipoFiltro || !p.tipo) // Filtrar por tipo seleccionado
   );
 
   const grossTotal = carrito.reduce(
@@ -187,10 +193,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       setNoSessionModalOpen(true);
       return;
     }
+    const esServicio = producto.tipo === "servicio";
     const stockNum = Number(producto.stock ?? 0);
     const precioNum = Number(producto.precio ?? 0);
-    if (stockNum < 1) return;
+    // Validación de precio para todos (productos y servicios)
     if (precioNum <= 0) return;
+    // Los productos físicos requieren stock
+    if (!esServicio && stockNum < 1) return;
     setCarrito((prev) => {
       const existente = prev.find((i) => i.producto.id === producto.id);
       if (existente) {
@@ -231,20 +240,20 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   Fecha: ${new Date().toLocaleString("es-HN")}
   ----------------------------------------
   ${carrito
-        .map(
-          (i) =>
-            `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(
-              Number(i.producto.precio || 0) * i.cantidad
-            ).toFixed(2)}`
-        )
-        .join("\n")}
+    .map(
+      (i) =>
+        `${i.producto.sku} | ${i.producto.nombre} x${i.cantidad} = L${(
+          Number(i.producto.precio || 0) * i.cantidad
+        ).toFixed(2)}`
+    )
+    .join("\n")}
   ----------------------------------------
   Subtotal: L${subtotal.toFixed(2)}
   ISV (${(taxRate * 100).toFixed(2)}%): L${isvTotal.toFixed(2)}
   Impuesto 18%: L${imp18Total.toFixed(2)}
   Impuesto turístico (${(taxTouristRate * 100).toFixed(
-          2
-        )}%): L${impTouristTotal.toFixed(2)}
+    2
+  )}%): L${impTouristTotal.toFixed(2)}
   TOTAL: L${total.toFixed(2)}
   ${tipo === "factura" ? "\n¡Gracias por su compra!" : "\nVálida por 24 horas"}
     `.trim();
@@ -317,7 +326,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               clienteNombreInputRef.current?.focus();
-            } catch (e) { }
+            } catch (e) {}
           }, 50);
           return;
         } else {
@@ -345,7 +354,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setTimeout(() => {
           try {
             clienteNombreInputRef.current?.focus();
-          } catch (e) { }
+          } catch (e) {}
         }, 50);
       } else {
         // no existe, limpiar nombre para nuevo registro
@@ -451,9 +460,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               null;
             try {
               setCotizacionLastNumero(numeroToReturn);
-            } catch (e) { }
+            } catch (e) {}
           }
-        } catch (e) { }
+        } catch (e) {}
       } else {
         const { data: insData, error: insErr } = await supabase
           .from("cotizaciones")
@@ -502,7 +511,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
 
         try {
           setCotizacionLastNumero(numeroToReturn);
-        } catch (e) { }
+        } catch (e) {}
         if (!cotizacionId) return null;
       }
 
@@ -517,23 +526,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const isvItem = exento
           ? 0
           : aplica18
-            ? 0
-            : price * (taxRate || 0) * qty;
+          ? 0
+          : price * (taxRate || 0) * qty;
         const imp18Item = exento
           ? 0
           : aplica18
-            ? price * (tax18Rate || 0) * qty
-            : 0;
+          ? price * (tax18Rate || 0) * qty
+          : 0;
         const turItem = exento
           ? 0
           : aplicaTur
-            ? price * (taxTouristRate || 0) * qty
-            : 0;
+          ? price * (taxTouristRate || 0) * qty
+          : 0;
         const subtotalItem = price * qty;
         const totalItem = subtotalItem + isvItem + imp18Item + turItem;
+        // Si es un servicio temporal (entrada manual), usar null como producto_id
+        const esTemp = String(it.producto.id).startsWith("temp-");
         return {
           cotizacion_id: cotizacionId,
-          producto_id: it.producto.id || null,
+          producto_id: esTemp ? null : it.producto.id || null,
           descripcion: it.producto.nombre || "",
           cantidad: qty,
           precio_unitario: price,
@@ -701,7 +712,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         else
           try {
             setCotizacionEditId(null);
-          } catch (e) { }
+          } catch (e) {}
       } catch (e) {
         console.warn("Error marcacion pre-print:", e);
       }
@@ -718,19 +729,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const parsedU = rawU ? JSON.parse(rawU) : null;
           userId =
             parsedU &&
-              (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
+            (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
               ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id
               : null;
           const userNameFromStorage =
             parsedU &&
-              (parsedU.username ||
-                parsedU.user?.username ||
-                parsedU.name ||
-                parsedU.user?.name)
-              ? parsedU.username ||
+            (parsedU.username ||
               parsedU.user?.username ||
               parsedU.name ||
-              parsedU.user?.name
+              parsedU.user?.name)
+              ? parsedU.username ||
+                parsedU.user?.username ||
+                parsedU.name ||
+                parsedU.user?.name
               : null;
           console.debug("PV: CAI lookup - raw localStorage.user:", rawU);
           console.debug("PV: CAI lookup - parsed user object:", parsedU);
@@ -801,7 +812,10 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         });
       } catch (e) {
         console.warn("Error preparando venta antes de imprimir:", e);
-        alert("Error preparando venta antes de imprimir: " + String(e));
+        const errorMsg =
+          e instanceof Error ? e.message : JSON.stringify(e, null, 2);
+        console.error("Detalles del error:", errorMsg);
+        alert("Error preparando venta antes de imprimir: " + errorMsg);
       }
     }
 
@@ -823,7 +837,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (!doc || !win) {
         try {
           document.body.removeChild(iframe);
-        } catch (e) { }
+        } catch (e) {}
       } else {
         doc.open();
         doc.write(html);
@@ -839,7 +853,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               document.body.removeChild(iframe);
-            } catch (e) { }
+            } catch (e) {}
           }, 800);
         };
 
@@ -870,7 +884,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           } catch (e) {
             try {
               win.addEventListener("load", printWhenReady);
-            } catch (e) { }
+            } catch (e) {}
             setTimeout(printWhenReady, 1000);
           }
         };
@@ -899,7 +913,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           try {
             w.print();
             w.close();
-          } catch (e) { }
+          } catch (e) {}
         }, 800);
       }
     }
@@ -1034,7 +1048,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         (usedCai && usedCai.identificador
           ? String(usedCai.identificador)
           : "") +
-        (usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : "") ||
+          (usedCai?.rango_hasta != null ? String(usedCai.rango_hasta) : "") ||
         null,
       fecha_limite_emision:
         usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null,
@@ -1052,13 +1066,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         const lineGross = price * qty;
         const prodExento = Boolean((it.producto as any).exento);
         const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
-        const aplicaTur = Boolean((it.producto as any).aplica_impuesto_turistico);
+        const aplicaTur = Boolean(
+          (it.producto as any).aplica_impuesto_turistico
+        );
 
         // determine applicable rates (same as tax extraction used elsewhere)
         const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
         const turRate = aplicaTur ? taxTouristRate || 0 : 0;
         const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
-        const taxAmount = combined > 0 ? lineGross - lineGross / (1 + combined) : 0;
+        const taxAmount =
+          combined > 0 ? lineGross - lineGross / (1 + combined) : 0;
 
         if (prodExento) {
           // exentos: subtotal is full gross price
@@ -1075,27 +1092,74 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       ventaPayload.sub_exento = Number(Number(sx || 0).toFixed(6));
       ventaPayload.sub_gravado = Number(Number(sg || 0).toFixed(6));
     } catch (e) {
-      console.debug('Error computing sub_* for ventaPayload', e);
+      console.debug("Error computing sub_* for ventaPayload", e);
     }
 
     // Try inserting venta; if server reports missing columns (PGRST204 / Could not find...), retry without CAI-related fields
     let ventaInsRaw: any = null;
     let ventaErr: any = null;
-    try {
-      const res = await supabase
-        .from("ventas")
-        .insert([ventaPayload])
-        .select("id, factura");
-      ventaInsRaw = (res as any).data ?? res;
-      ventaErr = (res as any).error ?? null;
-    } catch (e) {
-      ventaErr = e;
+    let intentosFactura = 0;
+    const maxIntentosFactura = 10;
+
+    while (intentosFactura < maxIntentosFactura) {
+      try {
+        const res = await supabase
+          .from("ventas")
+          .insert([ventaPayload])
+          .select("id, factura");
+        ventaInsRaw = (res as any).data ?? res;
+        ventaErr = (res as any).error ?? null;
+
+        // Si no hay error, salir del loop
+        if (!ventaErr) break;
+
+        // Si hay error de factura duplicada, incrementar e intentar de nuevo
+        const code = ventaErr && ventaErr.code ? String(ventaErr.code) : "";
+        if (
+          code === "23505" &&
+          ventaErr.details &&
+          ventaErr.details.includes("factura")
+        ) {
+          console.warn(`Factura ${facturaNum} duplicada, incrementando...`);
+          intentosFactura++;
+
+          // Incrementar el número de factura
+          if (computedSeqNum !== null) {
+            computedSeqNum++;
+            const newSeqPadded = String(computedSeqNum).padStart(padWidth, "0");
+            const identificador = usedCai?.identificador
+              ? String(usedCai.identificador)
+              : "";
+            facturaNum = identificador + newSeqPadded;
+          } else {
+            // Si no hay secuencia del CAI, incrementar el número random
+            facturaNum = String(
+              Math.floor(Math.random() * 900000) + 100000 + intentosFactura
+            );
+          }
+
+          // Actualizar el payload con el nuevo número de factura
+          ventaPayload.factura = facturaNum;
+          continue;
+        }
+
+        // Si es otro tipo de error, salir del loop
+        break;
+      } catch (e) {
+        ventaErr = e;
+        break;
+      }
     }
-    console.debug("Insert venta response:", { ventaInsRaw, ventaErr });
+
+    console.debug("Insert venta response:", {
+      ventaInsRaw,
+      ventaErr,
+      intentos: intentosFactura,
+    });
     if (ventaErr) {
       const msg = String(
         (ventaErr && (ventaErr.message || ventaErr.msg || ventaErr.details)) ||
-        ""
+          ""
       );
       const code = ventaErr && ventaErr.code ? String(ventaErr.code) : "";
       const looksLikeMissingCol =
@@ -1177,10 +1241,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const subtotalItem = price * qty;
       const descuento = 0;
       const totalItem = subtotalItem - descuento;
+      // Si es un servicio temporal (entrada manual), usar null como producto_id
+      const esTemp = String(it.producto.id).startsWith("temp-");
       return {
         venta_id: ventaId,
         factura: facturaNum,
-        producto_id: it.producto.id,
+        producto_id: esTemp ? null : it.producto.id,
+        descripcion: esTemp ? it.producto.nombre || "Servicio" : null,
         cantidad: qty,
         precio_unitario: price,
         subtotal: subtotalItem,
@@ -1197,18 +1264,21 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       );
     if (caiData && usuarioId && isUuid(usuarioId)) {
       try {
-        const rpcDetalles = carrito.map((it) => ({
-          producto_id: String(it.producto.id),
-          cantidad: Number(it.cantidad || 0),
-          precio_unitario: Number(it.producto.precio || 0),
-          subtotal: Number(
-            (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
-          ),
-          descuento: 0,
-          total: Number(
-            (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
-          ),
-        }));
+        // Excluir servicios temporales del RPC (solo productos con ID real)
+        const rpcDetalles = carrito
+          .filter((it) => !String(it.producto.id).startsWith("temp-"))
+          .map((it) => ({
+            producto_id: String(it.producto.id),
+            cantidad: Number(it.cantidad || 0),
+            precio_unitario: Number(it.producto.precio || 0),
+            subtotal: Number(
+              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
+            ),
+            descuento: 0,
+            total: Number(
+              (Number(it.producto.precio || 0) * it.cantidad).toFixed(6)
+            ),
+          }));
 
         const { data: rpcData, error: rpcErr } = await supabase.rpc(
           "create_venta_with_detalle",
@@ -1258,7 +1328,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   setCaiInfoState(refreshed);
                   try {
                     localStorage.setItem("caiInfo", JSON.stringify(refreshed));
-                  } catch (e) { }
+                  } catch (e) {}
                 }
               } catch (e) {
                 console.debug("Error refreshing cai after RPC:", e);
@@ -1284,7 +1354,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   setCaiInfoState(refreshed);
                   try {
                     localStorage.setItem("caiInfo", JSON.stringify(refreshed));
-                  } catch (e) { }
+                  } catch (e) {}
                 }
               } catch (e) {
                 console.debug("Error refreshing cai after RPC (scalar):", e);
@@ -1333,14 +1403,24 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
 
       const now = hondurasNowISO();
-      const registroRows = detalles.map((d: any) => ({
-        producto_id: d.producto_id,
-        cantidad: d.cantidad,
-        tipo_de_movimiento: "SALIDA",
-        referencia: referenciaText,
-        usuario: usuarioText,
-        fecha_salida: now,
-      }));
+      // Filtrar solo productos físicos (no servicios ni temporales) para registro de inventario
+      const registroRows = detalles
+        .filter((d: any) => {
+          // Excluir si producto_id es null (servicios temporales)
+          if (!d.producto_id || d.producto_id === null) return false;
+          const item = carrito.find(
+            (c) => String(c.producto.id) === String(d.producto_id)
+          );
+          return item && item.producto.tipo !== "servicio";
+        })
+        .map((d: any) => ({
+          producto_id: d.producto_id,
+          cantidad: d.cantidad,
+          tipo_de_movimiento: "SALIDA",
+          referencia: referenciaText,
+          usuario: usuarioText,
+          fecha_salida: now,
+        }));
 
       if (registroRows.length > 0) {
         const { data: regIns, error: regErr } = await supabase
@@ -1364,10 +1444,16 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     // Actualizar stock en tabla `inventario`: restar cantidades vendidas por producto
     try {
       // agrupar cantidades por producto para evitar múltiples updates por el mismo producto
+      // Excluir servicios del conteo de stock
       const qtyByProduct: Record<string, number> = {};
       for (const d of detalles) {
+        // Saltar si producto_id es null (servicios temporales)
+        if (!d.producto_id || d.producto_id === null) continue;
         const pid = String(d.producto_id);
         const qty = Number(d.cantidad || 0);
+        // Verificar si el producto es un servicio
+        const item = carrito.find((c) => String(c.producto.id) === pid);
+        if (item && item.producto.tipo === "servicio") continue; // No actualizar stock de servicios
         if (!qtyByProduct[pid]) qtyByProduct[pid] = 0;
         qtyByProduct[pid] += qty;
       }
@@ -1567,7 +1653,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 setCaiInfoState(newCai);
                 try {
                   localStorage.setItem("caiInfo", JSON.stringify(newCai));
-                } catch (e) { }
+                } catch (e) {}
               } catch (e) {
                 console.debug(
                   "Error updating local caiInfoState/localStorage:",
@@ -1602,7 +1688,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               setCaiInfoState(newCai);
               try {
                 localStorage.setItem("caiInfo", JSON.stringify(newCai));
-              } catch (e) { }
+              } catch (e) {}
             } catch (e) {
               console.debug(
                 "Error updating local caiInfoState/localStorage (after validation):",
@@ -1655,7 +1741,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       setTimeout(() => {
         try {
           clienteNombreRef.current?.focus();
-        } catch (e) { }
+        } catch (e) {}
       }, 80);
     }
   }, [clienteNormalModalOpen]);
@@ -1769,7 +1855,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           );
           try {
             setCotizacionEditId(null);
-          } catch (e) { }
+          } catch (e) {}
         }
       } catch (e) {
         console.warn("Error marcacion pre-print:", e);
@@ -1788,19 +1874,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const parsedU = rawU ? JSON.parse(rawU) : null;
           userId =
             parsedU &&
-              (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
+            (parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id)
               ? parsedU.id || parsedU.user?.id || parsedU.sub || parsedU.user_id
               : null;
           const userNameFromStorage =
             parsedU &&
-              (parsedU.username ||
-                parsedU.user?.username ||
-                parsedU.name ||
-                parsedU.user?.name)
-              ? parsedU.username ||
+            (parsedU.username ||
               parsedU.user?.username ||
               parsedU.name ||
-              parsedU.user?.name
+              parsedU.user?.name)
+              ? parsedU.username ||
+                parsedU.user?.username ||
+                parsedU.name ||
+                parsedU.user?.name
               : null;
           console.debug(
             "PV (clienteNormal): CAI lookup - raw localStorage.user:",
@@ -1902,7 +1988,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       if (!doc || !win) {
         try {
           document.body.removeChild(iframe);
-        } catch (e) { }
+        } catch (e) {}
       } else {
         doc.open();
         doc.write(html);
@@ -1918,7 +2004,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setTimeout(() => {
             try {
               document.body.removeChild(iframe);
-            } catch (e) { }
+            } catch (e) {}
           }, 800);
         };
 
@@ -1949,7 +2035,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           } catch (e) {
             try {
               win.addEventListener("load", printWhenReady);
-            } catch (e) { }
+            } catch (e) {}
             setTimeout(printWhenReady, 1000);
           }
         };
@@ -1978,7 +2064,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           try {
             w.print();
             w.close();
-          } catch (e) { }
+          } catch (e) {}
         }, 800);
       }
     }
@@ -2044,7 +2130,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const { data: invData, error: invErr } = await supabase
         .from("inventario")
         .select(
-          "id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico"
+          "id, sku, nombre, categoria, imagen, modelo, descripcion, exento, aplica_impuesto_18, aplica_impuesto_turistico, tipo"
         );
       if (invErr) throw invErr;
       const invRows = Array.isArray(invData) ? invData : [];
@@ -2110,8 +2196,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           priceMap[String(r.id)] !== undefined
             ? priceMap[String(r.id)]
             : r.precio !== undefined
-              ? Number(r.precio)
-              : 0,
+            ? Number(r.precio)
+            : 0,
         exento:
           r.exento === true ||
           String(r.exento) === "true" ||
@@ -2128,6 +2214,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           Number(r.aplica_impuesto_turistico) === 1 ||
           false,
         stock: Number((stockMap[String(r.id)] || 0).toFixed(2)),
+        tipo: r.tipo === "servicio" ? "servicio" : "producto",
       }));
 
       setProductos(products);
@@ -2163,19 +2250,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setCotizacionEditId(
             parsed.header && parsed.header.id ? String(parsed.header.id) : null
           );
-        } catch (e) { }
+        } catch (e) {}
         try {
           const num =
             parsed.header &&
-              (parsed.header.numero_cotizacion ||
-                parsed.header["Número"] ||
-                parsed.header.numero)
-              ? parsed.header.numero_cotizacion ||
+            (parsed.header.numero_cotizacion ||
               parsed.header["Número"] ||
-              parsed.header.numero
+              parsed.header.numero)
+              ? parsed.header.numero_cotizacion ||
+                parsed.header["Número"] ||
+                parsed.header.numero
               : null;
           if (num) setCotizacionLastNumero(num);
-        } catch (e) { }
+        } catch (e) {}
         const detalles = Array.isArray(parsed.detalles) ? parsed.detalles : [];
         const items: ItemCarrito[] = detalles.map((d: any) => {
           const prodMatch = productos.find(
@@ -2184,26 +2271,26 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           const producto: Producto = prodMatch
             ? { ...prodMatch }
             : {
-              id: String(
-                d.producto_id ||
-                "temp-" + Math.random().toString(36).slice(2, 8)
-              ),
-              sku: d.sku ?? undefined,
-              nombre: d.descripcion || d.nombre || "Artículo",
-              precio: Number(d.precio_unitario || d.precio || 0),
-              categoria: undefined,
-              exento: false,
-              aplica_impuesto_18: false,
-              aplica_impuesto_turistico: false,
-              stock: 0,
-              imagen: undefined,
-            };
+                id: String(
+                  d.producto_id ||
+                    "temp-" + Math.random().toString(36).slice(2, 8)
+                ),
+                sku: d.sku ?? undefined,
+                nombre: d.descripcion || d.nombre || "Artículo",
+                precio: Number(d.precio_unitario || d.precio || 0),
+                categoria: undefined,
+                exento: false,
+                aplica_impuesto_18: false,
+                aplica_impuesto_turistico: false,
+                stock: 0,
+                imagen: undefined,
+              };
           return { producto, cantidad: Number(d.cantidad || 1) };
         });
         if (items.length > 0) setCarrito(items);
         try {
           localStorage.removeItem("cotizacion_to_load");
-        } catch (e) { }
+        } catch (e) {}
       } catch (e) {
         // ignore parse errors
       }
@@ -2217,7 +2304,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       try {
         const ce = ev as CustomEvent;
         doLoad(ce.detail);
-      } catch (e) { }
+      } catch (e) {}
     };
     window.addEventListener("cotizacion:load", handler as EventListener);
     return () => {
@@ -2243,25 +2330,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         let extractedId: any =
           userIdState ??
           (parsed &&
-            (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
+          (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
             ? parsed.id || parsed.user?.id || parsed.sub || parsed.user_id
             : null);
         const userNameLocal =
           userName ??
           (parsed &&
-            (parsed.username ||
-              parsed.user?.username ||
-              parsed.name ||
-              parsed.user?.name)
-            ? parsed.username ||
+          (parsed.username ||
             parsed.user?.username ||
             parsed.name ||
-            parsed.user?.name
+            parsed.user?.name)
+            ? parsed.username ||
+              parsed.user?.username ||
+              parsed.name ||
+              parsed.user?.name
             : null);
         const userIdQuery: any =
           extractedId != null &&
-            typeof extractedId === "string" &&
-            /^\d+$/.test(extractedId)
+          typeof extractedId === "string" &&
+          /^\d+$/.test(extractedId)
             ? Number(extractedId)
             : extractedId;
         if (userIdQuery != null) {
@@ -2303,7 +2390,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setCaiInfoState(caiFetched);
         try {
           localStorage.setItem("caiInfo", JSON.stringify(caiFetched));
-        } catch (e) { }
+        } catch (e) {}
         console.debug("refreshCaiInfo: updated caiInfoState", caiFetched);
       }
     } catch (e) {
@@ -2320,25 +2407,25 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         let extractedId: any =
           userIdState ??
           (parsed &&
-            (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
+          (parsed.id || parsed.user?.id || parsed.sub || parsed.user_id)
             ? parsed.id || parsed.user?.id || parsed.sub || parsed.user_id
             : null);
         const userNameLocal =
           userName ??
           (parsed &&
-            (parsed.username ||
-              parsed.user?.username ||
-              parsed.name ||
-              parsed.user?.name)
-            ? parsed.username ||
+          (parsed.username ||
             parsed.user?.username ||
             parsed.name ||
-            parsed.user?.name
+            parsed.user?.name)
+            ? parsed.username ||
+              parsed.user?.username ||
+              parsed.name ||
+              parsed.user?.name
             : null);
         const userIdQuery: any =
           extractedId != null &&
-            typeof extractedId === "string" &&
-            /^\d+$/.test(extractedId)
+          typeof extractedId === "string" &&
+          /^\d+$/.test(extractedId)
             ? Number(extractedId)
             : extractedId;
         if (userIdQuery != null) {
@@ -2380,7 +2467,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         setNcInfoState(ncFetched);
         try {
           localStorage.setItem("ncInfo", JSON.stringify(ncFetched));
-        } catch (e) { }
+        } catch (e) {}
         console.debug("refreshNcInfo: updated ncInfoState", ncFetched);
       }
     } catch (e) {
@@ -2427,13 +2514,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 if (!hasAll) {
                   const userNameLocal =
                     u &&
-                      (u.username || u.user?.username || u.name || u.user?.name)
+                    (u.username || u.user?.username || u.name || u.user?.name)
                       ? u.username || u.user?.username || u.name || u.user?.name
                       : null;
                   const userIdLocal: any =
                     extractedId &&
-                      typeof extractedId === "string" &&
-                      /^\d+$/.test(extractedId)
+                    typeof extractedId === "string" &&
+                    /^\d+$/.test(extractedId)
                       ? Number(extractedId)
                       : extractedId;
                   let fetched: any = null;
@@ -2484,7 +2571,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     setCaiInfoState(fetched);
                     try {
                       localStorage.setItem("caiInfo", JSON.stringify(fetched));
-                    } catch (e) { }
+                    } catch (e) {}
                     console.debug(
                       "PV: refreshed caiInfo from Supabase:",
                       fetched
@@ -2517,13 +2604,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 if (!hasAll) {
                   const userNameLocal =
                     u &&
-                      (u.username || u.user?.username || u.name || u.user?.name)
+                    (u.username || u.user?.username || u.name || u.user?.name)
                       ? u.username || u.user?.username || u.name || u.user?.name
                       : null;
                   const userIdLocal: any =
                     extractedId &&
-                      typeof extractedId === "string" &&
-                      /^\d+$/.test(extractedId)
+                    typeof extractedId === "string" &&
+                    /^\d+$/.test(extractedId)
                       ? Number(extractedId)
                       : extractedId;
                   let fetched: any = null;
@@ -2574,7 +2661,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                     setNcInfoState(fetched);
                     try {
                       localStorage.setItem("ncInfo", JSON.stringify(fetched));
-                    } catch (e) { }
+                    } catch (e) {}
                     console.debug(
                       "PV: refreshed ncInfo from Supabase:",
                       fetched
@@ -2921,6 +3008,70 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               tdStyle={tdStyle}
               skuStyle={skuStyle}
             />
+            {/* Botones de filtro por tipo */}
+            <div
+              style={{
+                padding: "12px 16px",
+                background: "#f8fafc",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                gap: 8,
+                justifyContent: "center",
+              }}
+            >
+              <button
+                onClick={() => setTipoFiltro("producto")}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: "1px solid",
+                  borderColor:
+                    tipoFiltro === "producto" ? "#0ea5e9" : "#e2e8f0",
+                  background: tipoFiltro === "producto" ? "#0ea5e9" : "white",
+                  color: tipoFiltro === "producto" ? "white" : "#64748b",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                📦 Producto
+              </button>
+              <button
+                onClick={() => setTipoFiltro("servicio")}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: "1px solid",
+                  borderColor:
+                    tipoFiltro === "servicio" ? "#0ea5e9" : "#e2e8f0",
+                  background: tipoFiltro === "servicio" ? "#0ea5e9" : "white",
+                  color: tipoFiltro === "servicio" ? "white" : "#64748b",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                ⚙️ Servicio
+              </button>
+              <button
+                onClick={() => setShowEntradaManualModal(true)}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: "1px solid #10b981",
+                  background: "#10b981",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                ➕ Entrada Manual
+              </button>
+            </div>
           </div>
 
           {/* CARRITO: componente separado */}
@@ -3168,6 +3319,204 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
       )}
+
+      {/* Modal: Entrada Manual de Servicio */}
+      {showEntradaManualModal && (
+        <EntradaManualModal
+          open={showEntradaManualModal}
+          onClose={() => setShowEntradaManualModal(false)}
+          onAgregar={(servicioData) => {
+            // Crear un producto temporal tipo servicio
+            const servicioTemporal: Producto = {
+              id: `temp-${Date.now()}`, // ID temporal único
+              nombre: servicioData.descripcion,
+              precio: servicioData.precio,
+              categoria: servicioData.tipo,
+              tipo: "servicio",
+              stock: 0,
+              exento: false,
+            };
+            agregarAlCarrito(servicioTemporal);
+            setShowEntradaManualModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Componente Modal de Entrada Manual
+function EntradaManualModal({
+  open,
+  onClose,
+  onAgregar,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAgregar: (data: {
+    descripcion: string;
+    tipo: string;
+    precio: number;
+  }) => void;
+}) {
+  const [descripcion, setDescripcion] = useState("");
+  const [tipo, setTipo] = useState("SERVICIOS VARIOS");
+  const [precio, setPrecio] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!descripcion.trim()) {
+      alert("Ingrese una descripción");
+      return;
+    }
+    if (!precio || parseFloat(precio) <= 0) {
+      alert("Ingrese un precio válido mayor a 0");
+      return;
+    }
+    onAgregar({
+      descripcion: descripcion.trim(),
+      tipo,
+      precio: parseFloat(precio),
+    });
+    // Limpiar formulario
+    setDescripcion("");
+    setTipo("SERVICIOS VARIOS");
+    setPrecio("");
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{
+          background: "white",
+          padding: 24,
+          borderRadius: 12,
+          width: 500,
+          maxHeight: "90vh",
+          overflow: "auto",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+        }}
+      >
+        <h3 style={{ marginTop: 0, color: "#1e293b", fontSize: 20 }}>
+          ⚙️ Entrada Manual - Servicio
+        </h3>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 16 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 13,
+                color: "#475569",
+                marginBottom: 6,
+                fontWeight: 600,
+              }}
+            >
+              Descripción del servicio *
+            </label>
+            <input
+              className="input"
+              type="text"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Ej: Reparación de equipo, servicio técnico..."
+              autoFocus
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 13,
+                color: "#475569",
+                marginBottom: 6,
+                fontWeight: 600,
+              }}
+            >
+              Tipo de servicio *
+            </label>
+            <select
+              className="input"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+            >
+              <option value="SERVICIOS VARIOS">SERVICIOS VARIOS</option>
+              <option value="REPARACIONES VARIAS">REPARACIONES VARIAS</option>
+              <option value="COBRO POR INCONSISTENCIA">
+                COBRO POR INCONSISTENCIA
+              </option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 13,
+                color: "#475569",
+                marginBottom: 6,
+                fontWeight: 600,
+              }}
+            >
+              Precio (L) *
+            </label>
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={precio}
+              onChange={(e) => setPrecio(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              justifyContent: "flex-end",
+            }}
+          >
+            <button
+              type="button"
+              className="btn-opaque"
+              onClick={onClose}
+              style={{
+                padding: "10px 20px",
+                background: "#e2e8f0",
+                color: "#475569",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn-opaque"
+              style={{
+                padding: "10px 20px",
+                background: "#10b981",
+                color: "white",
+              }}
+            >
+              ✓ Agregar al Carrito
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

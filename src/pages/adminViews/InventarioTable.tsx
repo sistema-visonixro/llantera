@@ -6,6 +6,8 @@ export default function InventarioTable() {
     categorias: number;
     marcas: number;
     items: number;
+    productos: number;
+    servicios: number;
     publicadas: number;
     exentos: number;
     aplica_impuesto_18: number;
@@ -25,7 +27,7 @@ export default function InventarioTable() {
         const res = await sup
           .from("inventario")
           .select(
-            "id,categoria,marca,publicacion_web,exento,aplica_impuesto_18,aplica_impuesto_turistico"
+            "id,categoria,marca,publicacion_web,exento,aplica_impuesto_18,aplica_impuesto_turistico,tipo"
           );
         if (!mounted) return;
         const rows = Array.isArray(res.data) ? res.data : [];
@@ -36,6 +38,10 @@ export default function InventarioTable() {
           rows.map((r: any) => r.marca ?? "").filter(Boolean)
         );
         const items = rows.length;
+        const productos = rows.filter(
+          (r: any) => (r.tipo || "producto") === "producto"
+        ).length;
+        const servicios = rows.filter((r: any) => r.tipo === "servicio").length;
         const publicadas = rows.filter((r: any) =>
           Boolean(r.publicacion_web)
         ).length;
@@ -64,6 +70,8 @@ export default function InventarioTable() {
           categorias: categoriasSet.size,
           marcas: marcasSet.size,
           items,
+          productos,
+          servicios,
           publicadas,
           exentos,
           aplica_impuesto_18: aplica18,
@@ -92,6 +100,14 @@ export default function InventarioTable() {
         />
         <Card label="Marcas" value={summary ? String(summary.marcas) : "..."} />
         <Card label="Items" value={summary ? String(summary.items) : "..."} />
+        <Card
+          label="📦 Productos"
+          value={summary ? String(summary.productos) : "..."}
+        />
+        <Card
+          label="⚙️ Servicios"
+          value={summary ? String(summary.servicios) : "..."}
+        />
         <Card
           label="Publicadas en web"
           value={summary ? String(summary.publicadas) : "..."}
@@ -177,7 +193,7 @@ export default function InventarioTable() {
 
       <SupabaseTable
         table="inventario"
-        select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, publicacion_web, exento, aplica_impuesto_18, aplica_impuesto_turistico, creado_en,imagen"
+        select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, tipo, publicacion_web, exento, aplica_impuesto_18, aplica_impuesto_turistico, creado_en,imagen"
         title=""
         order={["id", "categoria", "marca"]}
         filters={{
@@ -188,6 +204,7 @@ export default function InventarioTable() {
           "imagen",
           "sku",
           "nombre",
+          "tipo",
           "marca",
           "modelo",
           "categoria",

@@ -321,13 +321,13 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
       ).filter(Boolean);
       let productosMap: Record<
         string,
-        { id: string; nombre?: string; sku?: string }
+        { id: string; nombre?: string; sku?: string; tipo?: string }
       > = {};
       if (productoIds.length > 0) {
         try {
           const { data: prods } = await supabase
             .from("inventario")
-            .select("id,nombre,sku")
+            .select("id,nombre,sku,tipo")
             .in("id", productoIds);
           if (Array.isArray(prods))
             prods.forEach((p: any) => {
@@ -335,6 +335,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
                 id: p.id,
                 nombre: p.nombre,
                 sku: p.sku,
+                tipo: p.tipo,
               };
             });
         } catch (e) {
@@ -348,6 +349,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
         ...d,
         nombre: productosMap[String(d.producto_id)]?.nombre || null,
         sku: productosMap[String(d.producto_id)]?.sku || null,
+        tipo: productosMap[String(d.producto_id)]?.tipo || "producto",
       }));
       setVentaProductos(enriched);
       // reset selected items
@@ -371,6 +373,7 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
           producto_id: det.producto_id,
           nombre: det.nombre || null,
           sku: det.sku || null,
+          tipo: det.tipo || "producto",
           cantidad_available: Number(det.cantidad || 0),
           cantidad: Number(det.cantidad || 0),
           precio_unitario: Number(det.precio_unitario || 0),
@@ -718,14 +721,17 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             : String(userIdCandidate);
         const now = hondurasNowISO();
         // Use same date column used elsewhere ('fecha_salida') because schema uses that column
-        const registroRows = selectedItems.map((s: any) => ({
-          producto_id: s.producto_id,
-          cantidad: Number(s.cantidad || 0),
-          tipo_de_movimiento: "ENTRADA",
-          referencia: referenciaText,
-          usuario: usuarioTextLocal,
-          fecha_salida: now,
-        }));
+        // Filtrar solo productos físicos (no servicios) para registro de inventario
+        const registroRows = selectedItems
+          .filter((s: any) => (s.tipo || "producto") !== "servicio")
+          .map((s: any) => ({
+            producto_id: s.producto_id,
+            cantidad: Number(s.cantidad || 0),
+            tipo_de_movimiento: "ENTRADA",
+            referencia: referenciaText,
+            usuario: usuarioTextLocal,
+            fecha_salida: now,
+          }));
         if (registroRows.length > 0) {
           const { data: regIns, error: regErr } = await supabase
             .from("registro_de_inventario")
@@ -751,8 +757,10 @@ export default function DevolucionCaja({ onBack }: { onBack: () => void }) {
             );
         }
 
-        // actualizar stock aumentando cantidades
+        // actualizar stock aumentando cantidades (solo productos físicos, no servicios)
         for (const s of selectedItems) {
+          // Saltar servicios
+          if ((s.tipo || "producto") === "servicio") continue;
           try {
             const pid = String(s.producto_id);
             const need = Number(s.cantidad || 0);
