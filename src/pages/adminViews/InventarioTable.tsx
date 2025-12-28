@@ -90,10 +90,19 @@ export default function InventarioTable() {
   }, []);
 
   return (
-    <div>
-      <h2 style={{ marginTop: 0 }}>PRODUCTOS</h2>
+    <div style={{ padding: "clamp(8px, 2vw, 18px)" }}>
+      <h2 style={{ marginTop: 0, fontSize: "clamp(18px, 3vw, 24px)" }}>
+        PRODUCTOS
+      </h2>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+          gap: "clamp(8px, 1.5vw, 12px)",
+          marginBottom: 16,
+        }}
+      >
         <Card
           label="Categorías (cuenta)"
           value={summary ? String(summary.categorias) : "..."}
@@ -129,9 +138,11 @@ export default function InventarioTable() {
       <div
         style={{
           display: "flex",
-          gap: 8,
+          flexWrap: "wrap",
+          gap: "clamp(6px, 1.5vw, 8px)",
           alignItems: "center",
           marginBottom: 12,
+          fontSize: "clamp(11px, 2vw, 13px)",
         }}
       >
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -191,42 +202,51 @@ export default function InventarioTable() {
         </button>
       </div>
 
-      <SupabaseTable
-        table="inventario"
-        select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, tipo, publicacion_web, exento, aplica_impuesto_18, aplica_impuesto_turistico, creado_en,imagen"
-        title=""
-        order={["id", "categoria", "marca"]}
-        filters={{
-          categoria: selectedCategoria || undefined,
-          marca: selectedMarca || undefined,
+      <div
+        style={{
+          maxHeight: "65vh",
+          overflowY: "auto",
+          width: "100%",
+          overflowX: "hidden",
         }}
-        columns={[
-          "imagen",
-          "sku",
-          "nombre",
-          "tipo",
-          "marca",
-          "modelo",
-          "categoria",
-          "descripcion",
-          "publicacion_web",
-          "exento",
-          "aplica_impuesto_18",
-          "aplica_impuesto_turistico",
-          "creado_en",
-        ]}
-        searchColumns={[
-          "nombre",
-          "sku",
-          "descripcion",
-          "codigo_barras",
-          "modelo",
-        ]}
-        formExclude={["codigo_barras", "creado_en"]}
-        allowAdd={true}
-        allowEdit={true}
-        allowDelete={true}
-      />
+      >
+        <SupabaseTable
+          table="inventario"
+          select="id, nombre, sku, codigo_barras, categoria, marca, descripcion, modelo, tipo, publicacion_web, exento, aplica_impuesto_18, aplica_impuesto_turistico, creado_en,imagen"
+          title=""
+          order={["id", "categoria", "marca"]}
+          filters={{
+            categoria: selectedCategoria || undefined,
+            marca: selectedMarca || undefined,
+          }}
+          columns={[
+            "imagen",
+            "sku",
+            "nombre",
+            "tipo",
+            "marca",
+            "modelo",
+            "categoria",
+            "descripcion",
+            "publicacion_web",
+            "exento",
+            "aplica_impuesto_18",
+            "aplica_impuesto_turistico",
+            "creado_en",
+          ]}
+          searchColumns={[
+            "nombre",
+            "sku",
+            "descripcion",
+            "codigo_barras",
+            "modelo",
+          ]}
+          formExclude={["codigo_barras", "creado_en"]}
+          allowAdd={true}
+          allowEdit={true}
+          allowDelete={true}
+        />
+      </div>
     </div>
   );
 }
@@ -235,15 +255,32 @@ function Card({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
-        padding: 12,
+        padding: "clamp(8px, 1.5vw, 12px)",
         background: "#fff",
         borderRadius: 8,
         boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-        minWidth: 140,
+        minWidth: "clamp(100px, 20vw, 140px)",
+        textAlign: "center",
       }}
     >
-      <div style={{ fontSize: 12, color: "#6b7280" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 6 }}>{value}</div>
+      <div
+        style={{
+          fontSize: "clamp(10px, 1.8vw, 12px)",
+          color: "#6b7280",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "clamp(16px, 3vw, 20px)",
+          fontWeight: 700,
+          marginTop: 6,
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

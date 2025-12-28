@@ -175,24 +175,62 @@
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto; /* allow columns to size naturally and wrap */
-  font-size: 13px;
+  table-layout: auto;
+  font-size: clamp(10px, 2vw, 13px); /* responsive font size */
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.admin-table thead,
+.admin-table tbody,
+.admin-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
 }
 .admin-table thead th {
-  padding: 8px 10px;
+  padding: clamp(4px, 1.5vw, 8px) clamp(6px, 2vw, 10px);
   text-align: left;
   color: #0f1724;
   font-weight: 600;
   border-bottom: 1px solid #e6eef6;
-  font-size: 13px;
+  font-size: clamp(10px, 2vw, 13px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .admin-table tbody td {
-  padding: 10px 12px;
+  padding: clamp(6px, 1.8vw, 10px) clamp(8px, 2.2vw, 12px);
   vertical-align: middle;
   border-bottom: 1px solid #f1f5f9;
-  white-space: normal; /* allow wrapping */
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+  font-size: clamp(10px, 1.8vw, 13px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .admin-table {
+    font-size: 11px;
+  }
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-table {
+    font-size: 10px;
+  }
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
 }
 .admin-actions {
   display: flex;

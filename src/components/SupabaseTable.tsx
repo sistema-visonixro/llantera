@@ -274,16 +274,31 @@ export default function SupabaseTable({
   };
 
   return (
-    <div style={{ padding: 18 }}>
-      {title ? <h2 style={{ marginTop: 0 }}>{title}</h2> : null}
+    <div style={{ padding: "clamp(10px, 2vw, 18px)", width: "100%" }}>
+      {title ? (
+        <h2 style={{ marginTop: 0, fontSize: "clamp(18px, 3vw, 24px)" }}>
+          {title}
+        </h2>
+      ) : null}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "clamp(6px, 1.5vw, 8px)",
+          marginBottom: 12,
+        }}
+      >
         <input
           placeholder="Buscar..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="input"
-          style={{ minWidth: 240 }}
+          style={{
+            minWidth: "clamp(180px, 40vw, 240px)",
+            flex: "1 1 auto",
+            fontSize: "clamp(12px, 2vw, 14px)",
+          }}
         />
         <button
           onClick={() => {
@@ -292,11 +307,22 @@ export default function SupabaseTable({
             fetchData();
           }}
           className="btn-opaque"
+          style={{
+            fontSize: "clamp(11px, 2vw, 13px)",
+            padding: "clamp(6px, 1.2vw, 8px) clamp(10px, 2vw, 12px)",
+          }}
         >
           Recargar
         </button>
         <div style={{ marginLeft: "auto" }}>
-          <button onClick={openAdd} className="btn-primary">
+          <button
+            onClick={openAdd}
+            className="btn-primary"
+            style={{
+              fontSize: "clamp(11px, 2vw, 13px)",
+              padding: "clamp(6px, 1.2vw, 8px) clamp(10px, 2vw, 12px)",
+            }}
+          >
             Agregar
           </button>
         </div>
@@ -312,8 +338,8 @@ export default function SupabaseTable({
       )}
 
       {!loading && filtered && filtered.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table" style={{ width: "100%" }}>
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table className="admin-table" style={{ minWidth: "100%" }}>
             <thead>
               <tr>
                 {displayedColumns.map((col) => (
@@ -341,8 +367,10 @@ export default function SupabaseTable({
                         <td
                           key={col}
                           style={{
-                            maxWidth: 420,
-                            wordBreak: "break-word" as any,
+                            width: "clamp(80px, 15vw, 120px)",
+                            maxWidth: "clamp(80px, 15vw, 120px)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                           }}
                         >
                           {val ? (
@@ -531,14 +559,16 @@ function Thumbnail({ src }: { src: string }) {
     return (
       <div
         style={{
-          width: 140,
-          height: 80,
+          width: "100%",
+          maxWidth: "clamp(60px, 12vw, 100px)",
+          height: "clamp(40px, 8vw, 60px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "#f3f4f6",
           color: "#6b7280",
           borderRadius: 4,
+          fontSize: "clamp(8px, 1.5vw, 10px)",
         }}
       >
         Cargando...
@@ -551,7 +581,12 @@ function Thumbnail({ src }: { src: string }) {
       <img
         src={encodeURI(imgSrc)}
         alt="img"
-        style={{ maxWidth: 140, maxHeight: 80, objectFit: "contain" }}
+        style={{
+          maxWidth: "clamp(60px, 12vw, 100px)",
+          maxHeight: "clamp(40px, 8vw, 60px)",
+          objectFit: "contain",
+          width: "100%",
+        }}
         onError={(e) => {
           setFailedUrl(imgSrc);
           setImgSrc(null);

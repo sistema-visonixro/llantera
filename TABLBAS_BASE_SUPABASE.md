@@ -1,254 +1,519 @@
-CREATE TABLE pagos_web (
-    id SERIAL PRIMARY KEY,
-    pedido_id UUID NOT NULL,
-    metodo_pago TEXT NOT NULL,               -- tarjeta, transferencia, efectivo
-    monto NUMERIC(14,2) NOT NULL,
-    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente','pagado','rechazado')),
-    fecha_pago TIMESTAMP DEFAULT NOW(),
-    referencia TEXT,
-    FOREIGN KEY (pedido_id) REFERENCES pedidos_web(id)
-);
-CREATE TABLE pedidos_web_detalle (
-    id SERIAL PRIMARY KEY,
-    pedido_id UUID NOT NULL,                 -- referencia a pedidos_web.id
-    producto_id UUID NOT NULL,               -- referencia a inventario.id
-    cantidad NUMERIC(10,2) NOT NULL,
-    precio_unitario NUMERIC(14,2) NOT NULL,
-    subtotal NUMERIC(14,2) NOT NULL,
-    descuento NUMERIC(14,2) DEFAULT 0,
-    total NUMERIC(14,2) NOT NULL,
-    FOREIGN KEY (pedido_id) REFERENCES pedidos_web(id),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE pedidos_web (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id UUID NOT NULL,                -- referencia a usuarios_web.id
-    fecha_pedido TIMESTAMP DEFAULT NOW(),
-    subtotal NUMERIC(14,2) DEFAULT 0,
-    impuesto NUMERIC(14,2) DEFAULT 0,
-    total NUMERIC(14,2) DEFAULT 0,
-    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente','pagado','cancelado','enviado')),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios_web(id)
-);
-CREATE TABLE carrito_compras (
-    id SERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,                -- referencia a usuarios_web.id
-    producto_id UUID NOT NULL,               -- referencia a inventario.id
-    cantidad NUMERIC(10,2) NOT NULL,
-    precio_unitario NUMERIC(14,2) NOT NULL,
-    subtotal NUMERIC(14,2) NOT NULL,
-    fecha_agregado TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios_web(id),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE usuarios_web (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nombre TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,                 -- almacenar hasheado
-    telefono TEXT,
-    direccion TEXT,
-    fecha_creacion TIMESTAMP DEFAULT NOW(),
-    estado TEXT DEFAULT 'activo'           -- activo, inactivo
-);
-CREATE TABLE cotizaciones_detalle (
-    id SERIAL PRIMARY KEY,
-    cotizacion_id UUID NOT NULL,         -- referencia a cotizaciones.id
-    producto_id UUID,                     -- referencia a inventario.id (opcional)
-    descripcion TEXT NOT NULL,            -- detalle del producto o servicio
-    cantidad NUMERIC(10,2) NOT NULL,
-    precio_unitario NUMERIC(14,2) NOT NULL,
-    subtotal NUMERIC(14,2) NOT NULL,
-    descuento NUMERIC(14,2) DEFAULT 0,
-    total NUMERIC(14,2) NOT NULL,
-    FOREIGN KEY (cotizacion_id) REFERENCES cotizaciones(id),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE cotizaciones (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cliente_id INTEGER,                  -- referencia a clientes.id
-    usuario TEXT NOT NULL,               -- quien genera la cotización
-    fecha_cotizacion TIMESTAMP DEFAULT NOW(),
-    numero_cotizacion TEXT UNIQUE,
-    validez_dias INTEGER DEFAULT 30,    -- días de validez de la cotización
-    subtotal NUMERIC(14,2) DEFAULT 0,
-    impuesto NUMERIC(14,2) DEFAULT 0,
-    total NUMERIC(14,2) DEFAULT 0,
-    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aceptada','rechazada')),
-    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-);
-CREATE TABLE caja_sesiones (
-    id SERIAL PRIMARY KEY,
-    usuario TEXT NOT NULL,                -- cajero o encargado de la caja
-    fecha_apertura TIMESTAMP DEFAULT NOW(),
-    monto_inicial NUMERIC(14,2) NOT NULL,
-    total_ingresos NUMERIC(14,2) DEFAULT 0,
-    total_egresos NUMERIC(14,2) DEFAULT 0,
-    saldo_final NUMERIC(14,2),           -- se calcula al cierre
-    fecha_cierre TIMESTAMP,
-    estado TEXT NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta','cerrada'))
-);
-CREATE TABLE caja_movimientos (
-    id SERIAL PRIMARY KEY,
-    tipo_movimiento TEXT NOT NULL CHECK (tipo_movimiento IN ('ingreso','egreso')), 
-    monto NUMERIC(14,2) NOT NULL,
-    concepto TEXT NOT NULL,                -- descripción del movimiento
-    referencia TEXT,                        -- factura, nota, pago, etc.
-    usuario TEXT NOT NULL,                  -- quien registró el movimiento
-    fecha TIMESTAMP DEFAULT NOW()
-);
-CREATE TABLE devoluciones_ventas (
-    id SERIAL PRIMARY KEY,
-    venta_id UUID NOT NULL,               -- referencia a la venta original
-    producto_id UUID NOT NULL,            -- producto devuelto
-    cantidad NUMERIC(10,2) NOT NULL,
-    motivo TEXT,                          -- motivo de la devolución
-    fecha_devolucion TIMESTAMP DEFAULT NOW(),
-    usuario TEXT NOT NULL,                -- quien registró la devolución
-    tipo_devolucion TEXT CHECK (tipo_devolucion IN ('credito','efectivo')) DEFAULT 'credito',
-    FOREIGN KEY (venta_id) REFERENCES ventas(id),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE auditoria (
-    id SERIAL PRIMARY KEY,
-    tabla TEXT NOT NULL,                  -- nombre de la tabla afectada
-    registro_id UUID,                      -- id del registro afectado
-    accion TEXT NOT NULL CHECK (accion IN ('INSERT','UPDATE','DELETE')), 
-    usuario TEXT NOT NULL,                -- quien realizó la acción
-    fecha TIMESTAMP DEFAULT NOW(),
-    datos_anteriores JSONB,               -- valores antes del cambio (para UPDATE/DELETE)
-    datos_nuevos JSONB                    -- valores después del cambio (para INSERT/UPDATE)
-);
-CREATE TABLE cuentas_contables (
-    id SERIAL PRIMARY KEY,
-    codigo TEXT NOT NULL UNIQUE,        -- código de la cuenta (ej. 1101, 2102)
-    nombre TEXT NOT NULL,               -- nombre de la cuenta (ej. Caja, Bancos)
-    tipo TEXT NOT NULL CHECK (tipo IN ('activo','pasivo','patrimonio','ingreso','gasto')),
-    descripcion TEXT,                   -- descripción opcional
-    cuenta_padre_id INTEGER,            -- para jerarquía de cuentas
-    activo BOOLEAN DEFAULT TRUE,
-    FOREIGN KEY (cuenta_padre_id) REFERENCES cuentas_contables(id)
-);
-CREATE TABLE libro_diario (
-    id SERIAL PRIMARY KEY,
-    fecha TIMESTAMP NOT NULL DEFAULT NOW(),
-    cuenta TEXT NOT NULL,          -- nombre o código de la cuenta contable
-    descripcion TEXT,              -- detalle del movimiento
-    tipo_movimiento TEXT NOT NULL CHECK (tipo_movimiento IN ('debe', 'haber')),
-    monto NUMERIC(14,2) NOT NULL,
-    referencia TEXT,               -- factura, compra, nota, etc.
-    usuario TEXT                   -- quien registró el asiento
-);
-CREATE TABLE ventas_detalle (
-    id SERIAL PRIMARY KEY,
-    venta_id UUID NOT NULL,                 -- referencia a ventas.id
-    producto_id UUID NOT NULL,              -- referencia a inventario.id
-    cantidad NUMERIC(10,2) NOT NULL,
-    precio_unitario NUMERIC(10,2) NOT NULL,
-    subtotal NUMERIC(10,2) NOT NULL,       -- ahora es simple, el front calcula
-    descuento NUMERIC(10,2) DEFAULT 0,
-    total NUMERIC(10,2) NOT NULL,          -- ahora es simple, el front calcula
-    FOREIGN KEY (venta_id) REFERENCES ventas(id),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE ventas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cliente_id INTEGER,                     -- referencia a clientes.id
-    usuario TEXT NOT NULL,                  -- quien realizó la venta
-    fecha_venta TIMESTAMP DEFAULT NOW(),
-    numero_factura TEXT UNIQUE,
-    tipo_pago TEXT,                         -- efectivo, tarjeta, transferencia
-    subtotal NUMERIC(10,2) DEFAULT 0,
-    impuesto NUMERIC(10,2) DEFAULT 0,
-    total NUMERIC(10,2) DEFAULT 0,
-    estado TEXT DEFAULT 'pagada',           -- pagada, anulada, pendiente
-    FOREIGN KEY (cliente_id) REFERENCES clientes(id)
-);
-CREATE TABLE salidas_inventario (
-    id SERIAL PRIMARY KEY,
-    producto_id UUID NOT NULL,           -- debe coincidir con inventario.id
-    cantidad NUMERIC(10,2) NOT NULL,
-    tipo_salida TEXT NOT NULL,           -- ejemplo: 'venta', 'ajuste', 'donacion'
-    referencia TEXT,                     -- factura, nota, o motivo
-    usuario TEXT,                        -- quien realizó la salida
-    fecha_salida TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (producto_id) REFERENCES inventario(id)
-);
-CREATE TABLE compras (
-    id SERIAL PRIMARY KEY,
-    proveedor_id INTEGER NOT NULL,
-    fecha_compra TIMESTAMP DEFAULT NOW(),
-    numero_documento TEXT,          
-    tipo_documento TEXT,            
-    subtotal NUMERIC(10,2) DEFAULT 0,
-    impuesto NUMERIC(10,2) DEFAULT 0,
-    total NUMERIC(10,2) DEFAULT 0,
-    usuario TEXT,
-    FOREIGN KEY (proveedor_id) REFERENCES proveedores (id)
+-- TABLAS BASE / INDEPENDIENTES
+CREATE TABLE public.clientenatural (
+rtn text NOT NULL,
+nombre text NOT NULL,
+CONSTRAINT clientenatural_pkey PRIMARY KEY (rtn)
 );
 
-CREATE TABLE compras_detalle (
-    id SERIAL PRIMARY KEY,
-    compra_id INTEGER NOT NULL,
-    producto_id UUID NOT NULL,               -- cambiado a UUID
-    cantidad NUMERIC(10,2) NOT NULL,
-    costo_unitario NUMERIC(10,2) NOT NULL,
-    subtotal NUMERIC(10,2) GENERATED ALWAYS AS (cantidad * costo_unitario) STORED,
-    FOREIGN KEY (compra_id) REFERENCES compras (id),
-    FOREIGN KEY (producto_id) REFERENCES inventario (id)
+CREATE TABLE public.empresa (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+rtn text NOT NULL,
+nombre text NOT NULL,
+telefono text,
+email text,
+direccion text,
+logo text
 );
-CREATE TABLE proveedores (
-    id SERIAL PRIMARY KEY,
-    nombre TEXT NOT NULL,
-    rtn TEXT,
-    telefono TEXT,
-    correo TEXT,
-    direccion TEXT,
-    tipo_proveedor TEXT CHECK (tipo_proveedor IN ('juridico', 'natural')),
-    activo BOOLEAN DEFAULT TRUE
+
+CREATE TABLE public.impuesto (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+impuesto_venta numeric NOT NULL
 );
-CREATE TABLE clientes (
-    id SERIAL PRIMARY KEY,
-    nombre TEXT NOT NULL,
-    rtn TEXT,
-    telefono TEXT,
-    tipo_cliente TEXT CHECK (tipo_cliente IN ('juridico', 'natural')),
-    correo_electronico TEXT,
-    exonerado BOOLEAN DEFAULT FALSE
+
+-- USUARIOS
+CREATE TABLE public.users (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+username text NOT NULL UNIQUE,
+password text NOT NULL,
+role text NOT NULL,
+nombre_usuario text
 );
-CREATE TABLE cai (
-    id SERIAL PRIMARY KEY,
-    cajero TEXT NOT NULL,
-    cai TEXT NOT NULL,
-    rango_de TEXT NOT NULL,
-    rango_hasta TEXT NOT NULL,
-    fecha_vencimiento DATE NOT NULL
+
+CREATE TABLE public.usuarios_web (
+id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+nombre text NOT NULL,
+email text NOT NULL UNIQUE,
+password text NOT NULL,
+telefono text,
+direccion text,
+fecha_creacion timestamp without time zone DEFAULT now(),
+estado text DEFAULT 'activo'::text
 );
-CREATE TABLE empresa (
-    id SERIAL PRIMARY KEY,
-    rtn TEXT NOT NULL,
-    nombre TEXT NOT NULL,
-    telefono TEXT,
-    email TEXT,
-    direccion TEXT,
-    logo TEXT
+
+-- INVENTARIO Y PRECIOS
+CREATE TABLE public.inventario (
+id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+nombre text NOT NULL,
+sku text NOT NULL UNIQUE,
+codigo_barras text,
+categoria text,
+marca text,
+descripcion text,
+modelo text,
+publicacion_web boolean DEFAULT false,
+exento boolean DEFAULT false,
+creado_en timestamp without time zone DEFAULT now(),
+imagen text,
+aplica_impuesto_18 boolean DEFAULT false,
+aplica_impuesto_turistico boolean DEFAULT false,
+tipo character varying DEFAULT 'producto'::character varying CHECK (tipo::text = ANY (ARRAY['producto'::character varying, 'servicio'::character varying]::text[]))
 );
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL
+
+CREATE TABLE public.precios (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+producto_id uuid NOT NULL,
+precio numeric NOT NULL CHECK (precio >= 0::numeric),
+CONSTRAINT precios_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
 );
-CREATE TABLE Inventario (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nombre TEXT NOT NULL,
-    sku TEXT UNIQUE NOT NULL,
-    codigo_barras TEXT,
-    categoria_id INTEGER,
-    marca_id INTEGER,
-    descripcion TEXT,
-    modelo TEXT,
-    publicacion_web BOOLEAN DEFAULT FALSE,
-    exento BOOLEAN DEFAULT FALSE,
-    creado_en TIMESTAMP DEFAULT NOW()
+
+CREATE TABLE public.precios_historico (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+producto_id uuid NOT NULL,
+precio numeric NOT NULL CHECK (precio >= 0::numeric),
+cambiado_en timestamp without time zone DEFAULT now(),
+CONSTRAINT precios_historico_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
 );
+
+-- PROVEEDORES Y COMPRAS
+CREATE TABLE public.proveedores (
+id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nombre text NOT NULL,
+rtn text,
+telefono text,
+correo text,
+direccion text,
+tipo_proveedor text,
+activo boolean DEFAULT true
+);
+
+CREATE TABLE public.compras (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+proveedor_id integer NOT NULL,
+fecha_compra timestamp without time zone DEFAULT now(),
+numero_documento text,
+tipo_documento text,
+subtotal numeric DEFAULT 0,
+impuesto numeric DEFAULT 0,
+total numeric DEFAULT 0,
+usuario text
+);
+
+CREATE TABLE public.compras_detalle (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+compra_id integer NOT NULL,
+producto_id uuid NOT NULL,
+cantidad numeric NOT NULL,
+costo_unitario numeric NOT NULL,
+subtotal numeric ,
+CONSTRAINT compras_detalle_compra_id_fkey FOREIGN KEY (compra_id) REFERENCES public.compras(id),
+CONSTRAINT compras_detalle_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
+);
+
+-- CLIENTES Y COTIZACIONES
+CREATE TABLE public.clientes (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+nombre text NOT NULL,
+rtn text,
+telefono text,
+tipo_cliente text CHECK (tipo_cliente = ANY (ARRAY['juridico'::text, 'natural'::text])),
+correo_electronico text,
+exonerado boolean DEFAULT false
+);
+
+CREATE TABLE public.cotizaciones (
+id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+cliente_id integer,
+usuario text NOT NULL,
+fecha_cotizacion timestamp without time zone DEFAULT now(),
+numero_cotizacion text UNIQUE,
+validez_dias integer DEFAULT 30,
+subtotal numeric DEFAULT 0,
+impuesto numeric DEFAULT 0,
+total numeric DEFAULT 0,
+estado text DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'aceptada'::text, 'rechazada'::text])),
+CONSTRAINT cotizaciones_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES public.clientes(id)
+);
+
+CREATE TABLE public.cotizaciones_detalle (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+cotizacion_id uuid NOT NULL,
+producto_id uuid,
+descripcion text NOT NULL,
+cantidad numeric NOT NULL,
+precio_unitario numeric NOT NULL,
+subtotal numeric NOT NULL,
+descuento numeric DEFAULT 0,
+total numeric NOT NULL,
+CONSTRAINT cotizaciones_detalle_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
+CONSTRAINT cotizaciones_detalle_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
+);
+
+-- VENTAS
+CREATE TABLE public.ventas (
+id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+usuario text NOT NULL,
+fecha_venta timestamp without time zone DEFAULT now(),
+factura text,
+tipo_pago text,
+subtotal numeric DEFAULT 0,
+impuesto numeric DEFAULT 0,
+total numeric DEFAULT 0,
+estado text DEFAULT 'pagada'::text,
+cai text,
+fecha_limite_emision text,
+rango_desde text,
+rango_hasta text,
+cambio text,
+rtn text,
+nombre_cliente text,
+observaciones text,
+isv_15 numeric NOT NULL DEFAULT 0,
+isv_18 numeric NOT NULL DEFAULT 0,
+isv_4 numeric NOT NULL DEFAULT 0,
+sub_exonerado numeric NOT NULL DEFAULT 0,
+sub_exento numeric NOT NULL DEFAULT 0,
+sub_gravado numeric NOT NULL DEFAULT 0
+);
+
+CREATE TABLE public.ventas_detalle (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+venta_id uuid NOT NULL,
+factura text,
+producto_id uuid,
+cantidad numeric NOT NULL,
+precio_unitario numeric NOT NULL,
+subtotal numeric NOT NULL,
+descuento numeric DEFAULT 0,
+total numeric NOT NULL,
+descripcion text,
+CONSTRAINT ventas_detalle_venta_id_fkey FOREIGN KEY (venta_id) REFERENCES public.ventas(id)
+);
+
+-- CAJA Y MOVIMIENTOS
+CREATE TABLE public.caja_sesiones (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+usuario text NOT NULL,
+fecha_apertura timestamp without time zone DEFAULT now(),
+monto_inicial numeric NOT NULL,
+total_ingresos numeric DEFAULT 0,
+total_egresos numeric DEFAULT 0,
+saldo_final numeric,
+fecha_cierre timestamp without time zone,
+estado text NOT NULL DEFAULT 'abierta'::text CHECK (estado = ANY (ARRAY['abierta'::text, 'cerrada'::text])),
+efectivo_obtenido numeric DEFAULT 0,
+dolares_obtenido numeric DEFAULT 0,
+tarjeta_obtenido numeric DEFAULT 0,
+transferencia_obtenido numeric DEFAULT 0,
+efectivo_registrado numeric DEFAULT 0,
+dolares_registrado numeric DEFAULT 0,
+tarjeta_registrado numeric DEFAULT 0,
+transferencia_registrado numeric DEFAULT 0,
+diferencia numeric DEFAULT 0
+);
+
+CREATE TABLE public.caja_movimientos (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+tipo_movimiento text NOT NULL CHECK (tipo_movimiento = ANY (ARRAY['ingreso'::text, 'egreso'::text])),
+monto numeric NOT NULL,
+concepto text NOT NULL,
+referencia text,
+usuario text NOT NULL,
+fecha timestamp without time zone DEFAULT now()
+);
+
+-- AUDITORÍA
+CREATE TABLE public.auditoria (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+tabla text NOT NULL,
+registro_id uuid,
+accion text NOT NULL CHECK (accion = ANY (ARRAY['INSERT'::text, 'UPDATE'::text, 'DELETE'::text])),
+usuario text NOT NULL,
+fecha timestamp without time zone DEFAULT now(),
+datos_anteriores jsonb,
+datos_nuevos jsonb
+);
+
+-- CAI
+CREATE TABLE public.cai (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+cajero text NOT NULL,
+cai text NOT NULL,
+rango_de text NOT NULL,
+rango_hasta text NOT NULL,
+fecha_vencimiento date NOT NULL,
+caja text,
+secuencia_actual text,
+usuario_id integer,
+identificador text,
+CONSTRAINT fk_cai_usuario FOREIGN KEY (usuario_id) REFERENCES public.users(id)
+);
+
+-- REGISTRO DE INVENTARIO
+CREATE TABLE public.registro_de_inventario (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+producto_id uuid NOT NULL,
+cantidad numeric NOT NULL,
+tipo_de_movimiento text NOT NULL CHECK (tipo_de_movimiento = ANY (ARRAY['ENTRADA'::text, 'SALIDA'::text])),
+referencia text,
+usuario text,
+fecha_salida timestamp without time zone DEFAULT now(),
+CONSTRAINT salidas_inventario_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
+);
+
+-- PAGOS Y PEDIDOS WEB
+CREATE TABLE public.pedidos_web (
+id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+usuario_id uuid NOT NULL,
+fecha_pedido timestamp without time zone DEFAULT now(),
+subtotal numeric DEFAULT 0,
+impuesto numeric DEFAULT 0,
+total numeric DEFAULT 0,
+estado text DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'pagado'::text, 'cancelado'::text, 'enviado'::text])),
+CONSTRAINT pedidos_web_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios_web(id)
+);
+
+CREATE TABLE public.pedidos_web_detalle (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+pedido_id uuid NOT NULL,
+producto_id uuid NOT NULL,
+cantidad numeric NOT NULL,
+precio_unitario numeric NOT NULL,
+subtotal numeric NOT NULL,
+descuento numeric DEFAULT 0,
+total numeric NOT NULL,
+CONSTRAINT pedidos_web_detalle_pedido_id_fkey FOREIGN KEY (pedido_id) REFERENCES public.pedidos_web(id),
+CONSTRAINT pedidos_web_detalle_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
+);
+
+CREATE TABLE public.pagos_web (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+pedido_id uuid NOT NULL,
+metodo_pago text NOT NULL,
+monto numeric NOT NULL,
+estado text DEFAULT 'pendiente'::text CHECK (estado = ANY (ARRAY['pendiente'::text, 'pagado'::text, 'rechazado'::text])),
+fecha_pago timestamp without time zone DEFAULT now(),
+referencia text,
+CONSTRAINT pagos_web_pedido_id_fkey FOREIGN KEY (pedido_id) REFERENCES public.pedidos_web(id)
+);
+
+CREATE TABLE public.pagos (
+id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+venta_id text,
+tipo character varying NOT NULL,
+monto numeric NOT NULL,
+banco character varying,
+tarjeta character varying,
+factura text,
+autorizador character varying,
+referencia character varying,
+meta jsonb,
+created_by uuid,
+created_at timestamp with time zone NOT NULL DEFAULT now(),
+usuario_id integer,
+usuario_nombre text,
+valor_moneda text
+);
+
+CREATE TABLE public.pagos_backup (
+id bigint,
+venta_id bigint,
+tipo character varying,
+monto numeric,
+banco character varying,
+tarjeta character varying,
+factura character varying,
+autorizador character varying,
+referencia character varying,
+meta jsonb,
+created_by uuid,
+created_at timestamp with time zone
+);
+
+-- CARRITO
+CREATE TABLE public.carrito_compras (
+id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+usuario_id uuid NOT NULL,
+producto_id uuid NOT NULL,
+cantidad numeric NOT NULL,
+precio_unitario numeric NOT NULL,
+subtotal numeric NOT NULL,
+fecha_agregado timestamp without time zone DEFAULT now(),
+CONSTRAINT carrito_compras_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios_web(id),
+CONSTRAINT carrito_compras_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.inventario(id)
+);
+
+
+
+
+-- Tabla maestra de devoluciones a proveedores
+CREATE TABLE IF NOT EXISTS devoluciones_proveedores (
+  id bigserial PRIMARY KEY,
+  proveedor_id bigint NOT NULL,
+  numero_documento text,
+  usuario text,
+  created_at timestamptz DEFAULT now(),
+  
+  -- Foreign key (opcional, depende si la tabla proveedores existe)
+  CONSTRAINT fk_proveedor FOREIGN KEY (proveedor_id) 
+    REFERENCES proveedores(id) ON DELETE CASCADE
+);
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS devoluciones_proveedores_detalle (
+  id bigserial PRIMARY KEY,
+  devolucion_id bigint NOT NULL,
+  producto_id bigint NOT NULL,
+  cantidad numeric(10, 2) NOT NULL DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+  
+ 
+);
+
+
+-- ============================================
+-- TABLA PARA NOTAS DE CRÉDITO (ncredito)
+-- Sistema de autorización de notas de crédito similar a CAI
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS ncredito (
+  id bigserial PRIMARY KEY,
+  cai text,
+  identificador text,
+  rango_de text,
+  rango_hasta text,
+  fecha_vencimiento timestamptz,
+  secuencia_actual text,
+  caja integer,
+  cajero text,
+  usuario_id bigint,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Índices útiles
+CREATE INDEX IF NOT EXISTS idx_ncredito_usuario ON ncredito(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_ncredito_caja ON ncredito(caja);
+CREATE INDEX IF NOT EXISTS idx_ncredito_cajero ON ncredito(cajero);
+CREATE INDEX IF NOT EXISTS idx_ncredito_fecha_venc ON ncredito(fecha_vencimiento);
+
+-- Comentarios
+COMMENT ON TABLE ncredito IS 'Registro de CAI para notas de crédito - similar a sistema de facturación';
+COMMENT ON COLUMN ncredito.cai IS 'Código de Autorización de Impresión (CAI)';
+COMMENT ON COLUMN ncredito.identificador IS 'Identificador único del rango de notas de crédito';
+COMMENT ON COLUMN ncredito.rango_de IS 'Número inicial del rango autorizado';
+COMMENT ON COLUMN ncredito.rango_hasta IS 'Número final del rango autorizado';
+COMMENT ON COLUMN ncredito.fecha_vencimiento IS 'Fecha de vencimiento del CAI';
+COMMENT ON COLUMN ncredito.secuencia_actual IS 'Último número de secuencia utilizado';
+COMMENT ON COLUMN ncredito.caja IS 'Número de caja asignado';
+COMMENT ON COLUMN ncredito.cajero IS 'Nombre del cajero asignado';
+COMMENT ON COLUMN ncredito.usuario_id IS 'ID del usuario asignado';
+
+
+-- ============================================
+-- POLÍTICAS RLS (Row Level Security) - OPCIONAL
+-- Descomentar si usas RLS en Supabase
+-- ============================================
+
+-- ALTER TABLE ncredito ENABLE ROW LEVEL SECURITY;
+
+-- CREATE POLICY "Allow read for authenticated users" 
+--   ON ncredito FOR SELECT 
+--   TO authenticated USING (true);
+
+-- CREATE POLICY "Allow insert for authenticated users" 
+--   ON ncredito FOR INSERT 
+--   TO authenticated WITH CHECK (true);
+
+-- CREATE POLICY "Allow update for authenticated users" 
+--   ON ncredito FOR UPDATE 
+--   TO authenticated USING (true) WITH CHECK (true);
+
+
+
+
+
+-- Políticas para tablas públicas de negocio
+CREATE POLICY "Permitir lectura pública de caja_movimientos"
+ON public.caja_movimientos
+FOR SELECT
+TO public
+USING (true);
+
+CREATE POLICY "Permitir lectura pública de compras"
+ON public.compras
+FOR SELECT
+TO public
+USING (true);
+
+CREATE POLICY "Permitir lectura pública de inventario"
+ON public.inventario
+FOR SELECT
+TO public
+USING (true);
+
+CREATE POLICY "Permitir lectura pública de ventas"
+ON public.ventas
+FOR SELECT
+TO public
+USING (true);
+
+CREATE POLICY "Permitir lectura pública de ventas_detalle"
+ON public.ventas_detalle
+FOR SELECT
+TO public
+USING (true);
+
+-- Políticas para storage.objects (bucket inventario)
+CREATE POLICY "imagen-ful tj1nch_0"
+ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'inventario'::text);
+
+CREATE POLICY "imagen-ful tj1nch_1"
+ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'inventario'::text);
+
+CREATE POLICY "imagen-ful tj1nch_2"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'inventario'::text);
+
+CREATE POLICY "imagen-ful tj1nch_3"
+ON storage.objects
+FOR DELETE
+TO public
+USING (bucket_id = 'inventario'::text);
+
+-- Políticas para storage.objects (bucket logo)
+CREATE POLICY "logo 1zbfv_0"
+ON storage.objects
+FOR DELETE
+TO public
+USING (bucket_id = 'logo'::text);
+
+CREATE POLICY "logo 1zbfv_1"
+ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'logo'::text);
+
+CREATE POLICY "logo 1zbfv_2"
+ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'logo'::text);
+
+CREATE POLICY "logo 1zbfv_3"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'logo'::text);
+
+-- crea bunkest : logo , inventario (los dos publicos)
