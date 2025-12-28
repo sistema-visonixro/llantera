@@ -140,37 +140,40 @@ export default function EntradasSalidas() {
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <div style={{ flex: 1, background: '#fff', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
+        <div style={{ flex: 1, background: '#fff', padding: 12, borderRadius: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>Entradas</strong>
             <button className="btn-opaque" onClick={() => { document.body.classList.add('print-table-only'); setTimeout(() => { window.print(); document.body.classList.remove('print-table-only') }, 50) }}>Imprimir</button>
           </div>
-          <table className="admin-table" style={{ marginTop: 8 }}>
-            <thead>
-              <tr><th>ID</th><th>SKU</th><th>Producto</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th><th>Fecha</th></tr>
-            </thead>
-            <tbody>
-              {entradas.map(r => (
-                <tr key={String(r.id)}>
-                  <td style={{ width: 70 }}>{String(r.id)}</td>
-                  <td style={{ minWidth: 120 }}>{productosMap[r.producto_id]?.sku || r.producto_id}</td>
-                  <td>{productosMap[r.producto_id]?.nombre || ''}</td>
-                  <td style={{ textAlign: 'right' }}>{Number(r.cantidad).toFixed(2)}</td>
-                  <td>{r.referencia || ''}</td>
-                  <td>{r.usuario || ''}</td>
-                  <td>{r.fecha_salida || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ maxHeight: '65vh', overflowY: 'auto', overflowX: 'auto', marginTop: 8 }}>
+            <table className="admin-table">
+              <thead>
+                <tr><th>ID</th><th>SKU</th><th>Producto</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th><th>Fecha</th></tr>
+              </thead>
+              <tbody>
+                {entradas.map(r => (
+                  <tr key={String(r.id)}>
+                    <td style={{ width: 70 }}>{String(r.id)}</td>
+                    <td style={{ minWidth: 120 }}>{productosMap[r.producto_id]?.sku || r.producto_id}</td>
+                    <td>{productosMap[r.producto_id]?.nombre || ''}</td>
+                    <td style={{ textAlign: 'right' }}>{Number(r.cantidad).toFixed(2)}</td>
+                    <td>{r.referencia || ''}</td>
+                    <td>{r.usuario || ''}</td>
+                    <td>{r.fecha_salida || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div style={{ flex: 1, background: '#fff', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
+        <div style={{ flex: 1, background: '#fff', padding: 12, borderRadius: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>Salidas</strong>
             <button className="btn-opaque" onClick={() => { document.body.classList.add('print-table-only'); setTimeout(() => { window.print(); document.body.classList.remove('print-table-only') }, 50) }}>Imprimir</button>
           </div>
-          <table className="admin-table" style={{ marginTop: 8 }}>
+          <div style={{ maxHeight: '65vh', overflowY: 'auto', overflowX: 'auto', marginTop: 8 }}>
+            <table className="admin-table">
             <thead>
               <tr><th>ID</th><th>SKU</th><th>Producto</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th><th>Fecha</th></tr>
             </thead>
@@ -188,6 +191,7 @@ export default function EntradasSalidas() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

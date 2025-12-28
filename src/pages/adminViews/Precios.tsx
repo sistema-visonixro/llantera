@@ -135,8 +135,9 @@ export default function PreciosView() {
 
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ background: '#fff', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
-        <table className="admin-table">
+      <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
+        <div style={{ maxHeight: '65vh', overflowY: 'auto', overflowX: 'auto' }}>
+          <table className="admin-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -158,6 +159,7 @@ export default function PreciosView() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <PreciosCreateModal open={createOpen} onClose={() => setCreateOpen(false)} products={availableProductsForCreate} onCreate={async (payload) => { await handleCreate(payload); setCreateOpen(false) }} />

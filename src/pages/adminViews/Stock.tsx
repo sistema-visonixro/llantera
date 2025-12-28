@@ -127,7 +127,7 @@ export default function Stock() {
 
       {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ background: '#fff', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
+      <div style={{ background: '#fff', padding: 12, borderRadius: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div></div>
           <div>
@@ -135,7 +135,8 @@ export default function Stock() {
           </div>
         </div>
 
-        <table className="admin-table" style={{ marginTop: 8 }}>
+        <div style={{ maxHeight: '65vh', overflowY: 'auto', overflowX: 'auto', marginTop: 8 }}>
+          <table className="admin-table">
           <thead>
             <tr>
               <th>Imagen</th>
@@ -163,6 +164,7 @@ export default function Stock() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
