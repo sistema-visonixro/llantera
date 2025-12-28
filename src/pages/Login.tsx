@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import supabase from '../lib/supabaseClient'
+import { getCompanyData } from '../lib/getCompanyData'
 
 type User = {
   id: number
@@ -18,6 +19,24 @@ export default function Login({ onLogin }: LoginProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState('SET')
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadCompanyInfo()
+  }, [])
+
+  async function loadCompanyInfo() {
+    try {
+      const company = await getCompanyData()
+      if (company) {
+        setCompanyName(company.nombre || 'SET')
+        setCompanyLogo(company.logoUrl || null)
+      }
+    } catch (err) {
+      console.error('Error loading company data:', err)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -107,7 +126,12 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div className="login-root">
       <div className="login-card" role="region" aria-label="login panel">
-        <h3 className="login-title">Bienvenido a SET</h3>
+        {companyLogo && (
+          <div className="login-logo">
+            <img src={companyLogo} alt="Logo de la empresa" />
+          </div>
+        )}
+        <h3 className="login-title">Bienvenido a {companyName}</h3>
         <div className="login-sub">Inicia sesión con tu cuenta</div>
 
         <div className="login-inner">
@@ -144,11 +168,7 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
           </form>
 
-          {message && <p style={{ marginTop: 12 }}>{message}</p>}
-
-          <div className="login-foot">
-            Credenciales de prueba: <span className="hint">admin / admin</span>
-          </div>
+          {message && <p className="login-message">{message}</p>}
         </div>
       </div>
     </div>
