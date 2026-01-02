@@ -260,17 +260,17 @@ export default function CotizacionesGuardadas({
 
       const html = await generateCotizacionHTML(opts, "cotizacion", params);
 
-      // print via hidden iframe (same approach as PuntoDeVentas)
+      // print via iframe (visible temporalmente para PWA)
       try {
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
-        iframe.style.right = "0";
-        iframe.style.bottom = "0";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
         iframe.style.border = "0";
-        iframe.style.overflow = "hidden";
-        iframe.setAttribute("aria-hidden", "true");
+        iframe.style.zIndex = "9999";
+        iframe.style.backgroundColor = "white";
         document.body.appendChild(iframe);
 
         const win = iframe.contentWindow;

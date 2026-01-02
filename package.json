@@ -1,7 +1,7 @@
 {
   "name": "set-oficial",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.2.2",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-with-crypto.mjs",

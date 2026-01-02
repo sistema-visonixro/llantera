@@ -821,17 +821,17 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // imprimir directamente usando un iframe oculto (no abrir nueva pestaña)
+    // imprimir directamente usando un iframe (visible temporalmente para PWA)
     try {
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
+      iframe.style.top = "0";
+      iframe.style.left = "0";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
       iframe.style.border = "0";
-      iframe.style.overflow = "hidden";
-      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.zIndex = "9999";
+      iframe.style.backgroundColor = "white";
       document.body.appendChild(iframe);
 
       const win = iframe.contentWindow;
@@ -1972,17 +1972,17 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // imprimir directamente usando iframe oculto
+    // imprimir directamente usando iframe (visible temporalmente para PWA)
     try {
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
+      iframe.style.top = "0";
+      iframe.style.left = "0";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
       iframe.style.border = "0";
-      iframe.style.overflow = "hidden";
-      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.zIndex = "9999";
+      iframe.style.backgroundColor = "white";
       document.body.appendChild(iframe);
 
       const win = iframe.contentWindow;
