@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
-  "buildDate": "2026-01-02T15:00:00.000Z",
-  "changelog": "Rediseño completo del formulario de Registro de producto y modal de Nueva compra con búsqueda inteligente y UI moderna"
+  "version": "1.2.1",
+  "buildDate": "2026-01-02T16:00:00.000Z",
+  "changelog": "Título y favicon ahora se cargan dinámicamente con el nombre y logo del negocio"
 }
