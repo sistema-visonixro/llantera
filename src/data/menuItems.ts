@@ -1,15 +1,23 @@
-export const menuItems: any[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "datos", label: "Datos de mi empresa" },
-  {
-    id: "usuarios",
-    label: "Usuarios / Cajeros",
-    children: [
-      { id: "usuarios_internal", label: "Usuarios Cajeros" },
-      { id: "usuarios_web", label: "Usuarios web (usuarios_web)" },
-      { id: "clientes", label: "Clientes (clientes)" },
-    ],
-  },
+// Function to filter menu items based on web integration setting
+export function getFilteredMenuItems(): any[] {
+  const webIntegrationEnabled =
+    typeof localStorage !== "undefined" &&
+    localStorage.getItem("webIntegrationEnabled") === "true";
+
+  const allMenuItems: any[] = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "datos", label: "Datos de mi empresa" },
+    {
+      id: "usuarios",
+      label: "Usuarios / Cajeros",
+      children: [
+        { id: "usuarios_internal", label: "Usuarios Cajeros" },
+        ...(webIntegrationEnabled
+          ? [{ id: "usuarios_web", label: "Usuarios web (usuarios_web)" }]
+          : []),
+        { id: "clientes", label: "Clientes (clientes)" },
+      ],
+    },
   {
     id: "factura",
     label: "Factura y CAI",
@@ -56,18 +64,22 @@ export const menuItems: any[] = [
       },
     ],
   },
-  {
-    id: "pedidos",
-    label: "Pedidos web / Ecommerce",
-    children: [
-      { id: "pedidos_web", label: "Pedidos web (pedidos_web)" },
-      {
-        id: "pedidos_detalle",
-        label: "Detalle de pedidos (pedidos_web_detalle)",
-      },
-      { id: "pagos_web", label: "Pagos web (pagos_web)" },
-    ],
-  },
+  ...(webIntegrationEnabled
+    ? [
+        {
+          id: "pedidos",
+          label: "Pedidos web / Ecommerce",
+          children: [
+            { id: "pedidos_web", label: "Pedidos web (pedidos_web)" },
+            {
+              id: "pedidos_detalle",
+              label: "Detalle de pedidos (pedidos_web_detalle)",
+            },
+            { id: "pagos_web", label: "Pagos web (pagos_web)" },
+          ],
+        },
+      ]
+    : []),
   {
     // Submenu removed; items moved under 'factura'
 
@@ -96,7 +108,13 @@ export const menuItems: any[] = [
      
     ],
   },
-  { id: "salir", label: "Salir" },
-];
+    { id: "salir", label: "Salir" },
+  ];
+
+  return allMenuItems;
+}
+
+// Export static menu for backward compatibility
+export const menuItems = getFilteredMenuItems();
 
 export default menuItems;

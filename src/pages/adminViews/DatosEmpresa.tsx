@@ -17,6 +17,17 @@ export default function DatosEmpresa() {
   const [confirmadoMessage, setConfirmadoMessage] = useState<string>("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [editLogoUrl, setEditLogoUrl] = useState<string | null>(null);
+  const [webIntegrationEnabled, setWebIntegrationEnabled] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  useEffect(() => {
+    try {
+      const webEnabled = localStorage.getItem("webIntegrationEnabled") === "true";
+      setWebIntegrationEnabled(webEnabled);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -291,6 +302,8 @@ export default function DatosEmpresa() {
       // remove non-serializable file object before saving to DB
       try {
         if (payload.logoFile) delete payload.logoFile;
+        // Remove pagina_web_integrada as it's not a DB column (localStorage only)
+        if (payload.pagina_web_integrada) delete payload.pagina_web_integrada;
       } catch {}
       let result: any = null;
       try {
@@ -505,6 +518,273 @@ export default function DatosEmpresa() {
   return (
     <div style={{ padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Datos de mi empresa</h2>
+      
+      {/* Web Integration Toggle */}
+      <div
+        style={{
+          background: "#fff",
+          padding: 18,
+          borderRadius: 8,
+          marginBottom: 20,
+          boxShadow: "0 1px 3px rgba(2,6,23,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 600, fontSize: "1rem", marginBottom: 4 }}>
+            🌐 Integración de página web
+          </div>
+          <div style={{ fontSize: "0.875rem", color: "#64748b" }}>
+            Mostrar menús de usuarios web y pedidos web/ecommerce
+          </div>
+        </div>
+        <label
+          style={{
+            position: "relative",
+            display: "inline-block",
+            width: 56,
+            height: 28,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={webIntegrationEnabled}
+            onChange={(e) => {
+              if (e.target.checked) {
+                // Show password modal to enable
+                setShowPasswordModal(true);
+                setPasswordInput("");
+                setPasswordError("");
+              } else {
+                // Disable directly
+                setWebIntegrationEnabled(false);
+                localStorage.setItem("webIntegrationEnabled", "false");
+                window.location.reload();
+              }
+            }}
+            style={{ opacity: 0, width: 0, height: 0 }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              cursor: "pointer",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: webIntegrationEnabled ? "#3b82f6" : "#cbd5e1",
+              transition: "0.3s",
+              borderRadius: 28,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                content: "",
+                height: 22,
+                width: 22,
+                left: webIntegrationEnabled ? 30 : 3,
+                bottom: 3,
+                background: "white",
+                transition: "0.3s",
+                borderRadius: "50%",
+              }}
+            />
+          </span>
+        </label>
+      </div>
+
+      {/* Password Modal */}
+      {showPasswordModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2, 6, 23, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              boxShadow: "0 20px 60px rgba(2, 6, 23, 0.3)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+                paddingBottom: 12,
+                borderBottom: "2px solid #e2e8f0",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 700,
+                  color: "#1e293b",
+                  margin: 0,
+                }}
+              >
+                🔐 Activar integración web
+              </h3>
+              <button
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  color: "#64748b",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  lineHeight: 1,
+                }}
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordInput("");
+                  setPasswordError("");
+                }}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: "#334155", marginBottom: 20 }}>
+              Ingresa la clave de activación para habilitar los menús de integración web.
+            </p>
+
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "#334155",
+                  marginBottom: 6,
+                }}
+              >
+                Clave de activación *
+              </label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setPasswordError("");
+                }}
+                placeholder="Ingresa la clave"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: passwordError ? "1px solid #ef4444" : "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  fontSize: "0.95rem",
+                  boxSizing: "border-box",
+                }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const correctPassword = "web8863";
+                    if (passwordInput === correctPassword) {
+                      setWebIntegrationEnabled(true);
+                      localStorage.setItem("webIntegrationEnabled", "true");
+                      setShowPasswordModal(false);
+                      setPasswordInput("");
+                      setPasswordError("");
+                      window.location.reload();
+                    } else {
+                      setPasswordError("Clave incorrecta. Inténtalo de nuevo.");
+                    }
+                  }
+                }}
+              />
+              {passwordError && (
+                <div
+                  style={{
+                    color: "#ef4444",
+                    fontSize: "0.875rem",
+                    marginTop: 6,
+                  }}
+                >
+                  {passwordError}
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                paddingTop: 16,
+                borderTop: "1px solid #e2e8f0",
+              }}
+            >
+              <button
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "1px solid #cbd5e1",
+                  background: "#f1f5f9",
+                  color: "#334155",
+                }}
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordInput("");
+                  setPasswordError("");
+                }}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "none",
+                  background: "#3b82f6",
+                  color: "white",
+                }}
+                onClick={() => {
+                  const correctPassword = "web8863";
+                  if (passwordInput === correctPassword) {
+                    setWebIntegrationEnabled(true);
+                    localStorage.setItem("webIntegrationEnabled", "true");
+                    setShowPasswordModal(false);
+                    setPasswordInput("");
+                    setPasswordError("");
+                    window.location.reload();
+                  } else {
+                    setPasswordError("Clave incorrecta. Inténtalo de nuevo.");
+                  }
+                }}
+                type="button"
+              >
+                Activar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {companyLoading ? (
         <div>Cargando datos de la empresa...</div>
       ) : !company ? (

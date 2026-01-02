@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 // Importamos el menú desde el archivo de datos
-import { menuItems } from "../data/menuItems";
+import { getFilteredMenuItems } from "../data/menuItems";
 import Placeholder from "./Placeholder"; // Asumiendo que el componente Placeholder existe
 
 // Importar todos los componentes de vista para el renderizado
@@ -88,6 +88,9 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
 };
 
 export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
+  // Get filtered menu items based on web integration setting
+  const menuItems = useMemo(() => getFilteredMenuItems(), []);
+  
   // Solo el estado de navegación es necesario en el componente principal
   const [active, setActive] = useState("dashboard");
   const [subActive, setSubActive] = useState<string | null>(null);
