@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import Confirmado from "../../components/Confirmado";
-import { checkForUpdatesManually, performUpdate } from "../../components/VersionChecker";
+import {
+  checkForUpdatesManually,
+  performUpdate,
+} from "../../components/VersionChecker";
 
 export default function DatosEmpresa() {
   const [company, setCompany] = useState<any | null>(null);
@@ -522,14 +525,14 @@ export default function DatosEmpresa() {
     setCheckingUpdates(true);
     try {
       const { hasUpdate, versionInfo } = await checkForUpdatesManually();
-      
+
       if (hasUpdate && versionInfo) {
         const confirmUpdate = window.confirm(
           `🚀 Nueva versión disponible: v${versionInfo.version}\n\n` +
-          `${versionInfo.changelog}\n\n` +
-          `¿Desea actualizar ahora? La aplicación se recargará.`
+            `${versionInfo.changelog}\n\n` +
+            `¿Desea actualizar ahora? La aplicación se recargará.`
         );
-        
+
         if (confirmUpdate) {
           await performUpdate(versionInfo.version);
         }
@@ -544,7 +547,9 @@ export default function DatosEmpresa() {
       }
     } catch (error) {
       setConfirmadoTitle("⚠️ Error");
-      setConfirmadoMessage("No se pudo verificar actualizaciones. Intenta más tarde.");
+      setConfirmadoMessage(
+        "No se pudo verificar actualizaciones. Intenta más tarde."
+      );
       setConfirmadoOpen(true);
     } finally {
       setCheckingUpdates(false);

@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
-  "buildDate": "2026-01-02T06:14:37.000Z",
-  "changelog": "Botón de búsqueda manual de actualizaciones agregado en Datos de mi empresa"
+  "version": "1.2.0",
+  "buildDate": "2026-01-02T15:00:00.000Z",
+  "changelog": "Rediseño completo del formulario de Registro de producto y modal de Nueva compra con búsqueda inteligente y UI moderna"
 }
