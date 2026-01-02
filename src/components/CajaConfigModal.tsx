@@ -29,7 +29,7 @@ export default function CajaConfigModal({ open, onClose, printFormat, onPrintFor
         <div style={{ width: 420, background: 'white', borderRadius: 10, padding: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h4 style={{ margin: 0 }}>Configuración de caja</h4>
-          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent' }}>Cerrar</button>
+          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent', color: '#0b1724', border: '1px solid rgba(16,24,40,0.06)', padding: '6px 10px' }}>Cerrar</button>
         </div>
 
         <div style={{ marginBottom: 12 }}>
@@ -46,7 +46,7 @@ export default function CajaConfigModal({ open, onClose, printFormat, onPrintFor
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent' }}>Cancelar</button>
+          <button onClick={onClose} className="btn-opaque" style={{ background: 'transparent', color: '#0b1724', border: '1px solid rgba(16,24,40,0.06)', padding: '8px 12px' }}>Cancelar</button>
           <button onClick={save} className="btn-opaque" style={{ background: '#16a34a', color: 'white' }}>Guardar</button>
         </div>
         </div>
