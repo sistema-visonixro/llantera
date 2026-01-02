@@ -49,7 +49,9 @@ type ItemCarrito = {
 export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Permitir scroll en tablets y móviles
+    const isMobile = window.innerWidth <= 1024;
+    document.body.style.overflow = isMobile ? "auto" : "hidden";
     return () => {
       document.body.style.overflow = prev || "";
     };
@@ -2893,17 +2895,22 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     <>
       <style>
         {`
+          /* Ajustes para tablets y viewport */
           @media (max-width: 1024px) {
+            .pdv-main-container {
+              padding-top: 8px !important;
+              min-height: auto !important;
+            }
             .pdv-grid {
-              grid-template-columns: 1fr 1fr !important;
+              grid-template-columns: 1fr !important;
               gap: 12px !important;
             }
             .pdv-cart {
-              max-height: 65vh !important;
+              max-height: 50vh !important;
             }
             .pdv-table-container {
-              max-height: 65vh !important;
-              min-height: 50vh !important;
+              max-height: 60vh !important;
+              min-height: 40vh !important;
             }
             .pdv-table-container table th {
               padding: 8px 6px !important;
@@ -2965,7 +2972,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         printFormat={printFormat}
       />
 
-      <div style={{ padding: 16, maxWidth: 1600, margin: "0 auto" }}>
+      <div className="pdv-main-container" style={{ padding: 16, maxWidth: 1600, margin: "0 auto" }}>
         {/* Buscador y Filtro */}
         <div
           className="pdv-search-bar"

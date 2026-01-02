@@ -76,8 +76,40 @@ export default function HeaderBar({
         .pv-backdrop { background: rgba(2,6,23,0.6); }
         .pv-logout-title { font-size: 1.05rem; font-weight: 800; }
         .pv-logout-body { color: #334155; margin-top: 6px; margin-bottom: 10px; }
+        
+        /* Responsivo para tablets */
+        @media (max-width: 1024px) {
+          .pv-header {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            padding: 10px 14px !important;
+          }
+          .pv-header-title {
+            font-size: 0.9rem !important;
+          }
+          .pv-header-username {
+            font-size: 0.8rem !important;
+          }
+          .pv-header-logo {
+            width: 32px !important;
+            height: 32px !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .pv-header {
+            padding: 8px 12px !important;
+          }
+          .pv-header-title {
+            font-size: 0.85rem !important;
+          }
+          .pv-header-center {
+            display: none !important;
+          }
+        }
       `}</style>
       <header
+        className="pv-header"
         style={{
           background: "#1e293b",
           color: "white",
@@ -86,7 +118,9 @@ export default function HeaderBar({
           justifyContent: "space-between",
           alignItems: "center",
           boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-          position: "relative",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -94,6 +128,7 @@ export default function HeaderBar({
             <img
               src={companyLogo}
               alt="logo"
+              className="pv-header-logo"
               style={{
                 width: 40,
                 height: 40,
@@ -102,11 +137,12 @@ export default function HeaderBar({
               }}
             />
           ) : null}
-          <div style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
+          <div className="pv-header-title" style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
             {companyName ? companyName : "Punto de Ventas"}
           </div>
         </div>
         <div
+          className="pv-header-center"
           style={{
             position: "absolute",
             left: "50%",
@@ -116,6 +152,7 @@ export default function HeaderBar({
           }}
         >
           <div
+            className="pv-header-username"
             style={{ fontSize: "0.95rem", color: "#e2e8f0", fontWeight: 500 }}
           >
             {userName ? `${userName}` : ""}
