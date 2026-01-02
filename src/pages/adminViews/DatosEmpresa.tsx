@@ -190,7 +190,13 @@ export default function DatosEmpresa() {
         setLogoPreviewUrl(null);
       }
     } catch {}
-    setEditForm(company || {});
+      setEditForm(company || {});
+      try {
+        // Recargar la aplicación para que los cambios se reflejen globalmente
+        if (typeof window !== "undefined" && window.location) {
+          window.location.reload();
+        }
+      } catch {}
   }
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -358,6 +364,12 @@ export default function DatosEmpresa() {
         );
         setConfirmadoOpen(true);
       } catch {}
+        // Recargar la aplicación para que los cambios se reflejen globalmente
+        try {
+          if (typeof window !== "undefined" && window.location) {
+            window.location.reload();
+          }
+        } catch {}
       // cleanup preview URL if any
       try {
         if (logoPreviewUrl) {
@@ -450,6 +462,12 @@ export default function DatosEmpresa() {
         "Los datos pendientes se sincronizaron con Supabase correctamente."
       );
       setConfirmadoOpen(true);
+        // Recargar la aplicación para que los cambios se reflejen globalmente
+        try {
+          if (typeof window !== "undefined" && window.location) {
+            window.location.reload();
+          }
+        } catch {}
     } catch (err: any) {
       console.error("Error reenviando datos pendientes", err);
       setConfirmadoTitle("Error al reenviar");
@@ -583,7 +601,18 @@ export default function DatosEmpresa() {
                   }}
                 />
               </div>
-              <h3 style={{ marginTop: 0 }}>{company.nombre}</h3>
+              {editing ? (
+                <input
+                  name="nombre"
+                  value={editForm.nombre || ""}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Nombre del negocio"
+                  style={{ fontSize: 18, fontWeight: 600, padding: 6 }}
+                />
+              ) : (
+                <h3 style={{ marginTop: 0 }}>{company.nombre}</h3>
+              )}
             </div>
             <div style={{ marginTop: 8, color: "#334155" }}>
               <div style={{ marginBottom: 8 }}>

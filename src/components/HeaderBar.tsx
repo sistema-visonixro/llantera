@@ -37,6 +37,27 @@ export default function HeaderBar({
   const ref = useRef<HTMLDivElement | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  useEffect(() => {
+    // Try to resolve a friendly display name for the current user.
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        const u = JSON.parse(raw as string) as any;
+        const candidate =
+          u?.name ||
+          u?.full_name ||
+          u?.user?.name ||
+          u?.user?.full_name ||
+          u?.user?.user_metadata?.full_name ||
+          u?.user?.user_metadata?.name ||
+          u?.username ||
+          null;
+        if (candidate) setDisplayName(String(candidate));
+      }
+    } catch {}
+  }, [userName]);
+
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node))
@@ -155,7 +176,7 @@ export default function HeaderBar({
             className="pv-header-username"
             style={{ fontSize: "0.95rem", color: "#e2e8f0", fontWeight: 500 }}
           >
-            {userName ? `${userName}` : ""}
+            {displayName || (userName ? `${userName}` : "")}
           </div>
           {/* CAI moved to DatosFacturaModal; header no longer shows detailed CAI */}
         </div>
