@@ -92,6 +92,22 @@ export default function RecordFormModal({
       );
     }
 
+    // Make `categoria` a select with fixed options; keep other categoria-like fields as text
+    if (col === "categoria") {
+      return (
+        <select
+          className="input"
+          value={form[col] ?? ""}
+          onChange={(e) => handleChange(col, e.target.value === "" ? null : e.target.value)}
+        >
+          <option value="">-- Seleccionar categoría --</option>
+          <option value="SERVICIO">SERVICIO</option>
+          <option value="REPUESTO">REPUESTO</option>
+          <option value="PRODUCTO">PRODUCTO</option>
+        </select>
+      );
+    }
+
     if (col.includes("categoria") || col.includes("marca")) {
       return (
         <input

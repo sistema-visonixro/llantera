@@ -15,7 +15,8 @@ export default function RegistroProducto() {
     try {
       const { data, error } = await supabase
         .from('inventario')
-        .select('id, nombre, sku')
+        .select('id, nombre, sku, categoria')
+        .not('categoria', 'ilike', '%servicios%')
         .order('nombre', { ascending: true });
       if (error) throw error;
       setProductos(Array.isArray(data) ? data : []);
@@ -33,7 +34,16 @@ export default function RegistroProducto() {
         .order('fecha_salida', { ascending: false })
         .limit(100);
       if (error) throw error;
-      setMovimientos(Array.isArray(data) ? data : []);
+      const allMov = Array.isArray(data) ? data : [];
+      // Exclude movements for products in category 'SERVICIOS'
+      const ids = Array.from(new Set(allMov.map((m: any) => String(m.producto_id)))).filter(Boolean)
+      if (ids.length > 0) {
+        const { data: prodData } = await supabase.from('inventario').select('id').in('id', ids).not('categoria', 'ilike', '%servicios%')
+        const allowed = new Set(Array.isArray(prodData) ? prodData.map((p: any) => String(p.id)) : [])
+        setMovimientos(allMov.filter(m => allowed.has(String(m.producto_id))));
+      } else {
+        setMovimientos([]);
+      }
     } catch (err) {
       console.error('Error loading movimientos', err);
       setMovimientos([]);

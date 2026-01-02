@@ -29,6 +29,8 @@ export default function Stock() {
       if (sku) query = query.ilike('sku', `%${sku}%`)
       if (marca) query = query.ilike('marca', `%${marca}%`)
       if (modelo) query = query.ilike('modelo', `%${modelo}%`)
+      // Excluir productos de categoría 'SERVICIOS'
+      query = query.not('categoria', 'ilike', '%servicios%')
       const { data, error } = await query.order('nombre', { ascending: true })
       if (error) throw error
       const inv: InventarioRow[] = Array.isArray(data) ? data as InventarioRow[] : []

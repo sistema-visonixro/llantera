@@ -179,6 +179,19 @@ export default function ProductTable({ productos, imageUrls, agregarAlCarrito, o
                 </td>
                 <td style={{ ...tdStyle, padding: '10px', textAlign: 'center' }}>
                   {(() => {
+                    // No mostrar stock si la categoría es SERVICIOS
+                    const categoria = String(prod.categoria || '').toUpperCase();
+                    if (categoria.includes('SERVICIO')) {
+                      return (
+                        <span style={{
+                          color: '#64748b',
+                          fontSize: 12,
+                          fontStyle: 'italic'
+                        }}>
+                          N/A
+                        </span>
+                      )
+                    }
                     const stockNum = Number(prod.stock || 0)
                     const color = stockNum > 10 ? '#16a34a' : stockNum > 0 ? '#d97706' : '#dc2626'
                     const bgColor = stockNum > 10 ? '#f0fdf4' : stockNum > 0 ? '#fef3c7' : '#fef2f2'

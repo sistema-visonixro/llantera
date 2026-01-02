@@ -34,13 +34,21 @@ export default function EntradasSalidas() {
       // If sku/marca/categoria filters provided, resolve matching product ids first
       let productIds: string[] | null = null
       if (sku || marca || categoria) {
-        let q: any = supabase.from('inventario').select('id').order('nombre', { ascending: true })
+        let q: any = supabase.from('inventario').select('id, tipo, categoria').order('nombre', { ascending: true })
         if (sku) q = q.ilike('sku', `%${sku}%`)
         if (marca) q = q.ilike('marca', `%${marca}%`)
         if (categoria) q = q.ilike('categoria', `%${categoria}%`)
+        // Excluir productos con tipo='servicio' O categoria que incluye 'SERVICIOS'
+        q = q.not('categoria', 'ilike', '%servicios%')
         const { data: prodData, error: prodErr } = await q
         if (prodErr) throw prodErr
-        productIds = Array.isArray(prodData) ? prodData.map((p: any) => String(p.id)) : []
+        // Filtrar adicionalmente por tipo!=servicio en cliente
+        const filtered = Array.isArray(prodData) ? prodData.filter((p: any) => {
+          const tipo = String(p.tipo || 'producto').toLowerCase();
+          const cat = String(p.categoria || '').toUpperCase();
+          return tipo !== 'servicio' && !cat.includes('SERVICIO');
+        }) : [];
+        productIds = filtered.map((p: any) => String(p.id))
         if (productIds.length === 0) {
           setRegistros([])
           setProductosMap({})
@@ -68,18 +76,24 @@ export default function EntradasSalidas() {
         usuario: r.usuario,
         fecha_salida: r.fecha_salida
       })) : []
-      setRegistros(rows)
-
-      // Load product details for involved product ids
+      // Load product details for involved product ids, excluding tipo=servicio OR categoria SERVICIOS
       const ids = Array.from(new Set(rows.map(r => r.producto_id))).filter(Boolean)
+      let map: Record<string, Producto> = {}
       if (ids.length > 0) {
-        const { data: prodData2 } = await supabase.from('inventario').select('id, nombre, sku, marca, categoria').in('id', ids)
-        const map: Record<string, Producto> = {}
-        if (Array.isArray(prodData2)) prodData2.forEach((p: any) => { map[String(p.id)] = { id: p.id, nombre: p.nombre, sku: p.sku, marca: p.marca, categoria: p.categoria } })
-        setProductosMap(map)
-      } else {
-        setProductosMap({})
+        const { data: prodData2 } = await supabase.from('inventario').select('id, nombre, sku, marca, categoria, tipo').in('id', ids).not('categoria', 'ilike', '%servicios%')
+        if (Array.isArray(prodData2)) {
+          // Filtrar adicionalmente por tipo!=servicio
+          const filtered = prodData2.filter((p: any) => {
+            const tipo = String(p.tipo || 'producto').toLowerCase();
+            return tipo !== 'servicio';
+          });
+          filtered.forEach((p: any) => { map[String(p.id)] = { id: p.id, nombre: p.nombre, sku: p.sku, marca: p.marca, categoria: p.categoria } })
+        }
       }
+      setProductosMap(map)
+      // Filter registros to only those whose product is not a servicio
+      const filteredRows = rows.filter(r => map.hasOwnProperty(r.producto_id))
+      setRegistros(filteredRows)
     } catch (err: any) {
       setError(err?.message || String(err))
       setRegistros([])
