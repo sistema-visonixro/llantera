@@ -23,7 +23,7 @@ git commit -m "v1.0.2: Descripción del cambio"
 git push origin main
 ```
 
-### 3️⃣ ¡Listo! 
+### 3️⃣ ¡Listo!
 
 - Vercel despliega automáticamente
 - En máximo **5 minutos**, los usuarios verán una notificación

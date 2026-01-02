@@ -2962,461 +2962,475 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           background: "#f8fafc",
         }}
       >
-      {/* Header */}
-      <HeaderBar
-        userName={userName}
-        userRole={userRole}
-        userId={userIdState}
-        caiInfo={caiInfoState}
-        onLogout={onLogout}
-        onNavigate={(v) => setView(v)}
-        onOpenDatosFactura={() => setDatosFacturaOpen(true)}
-        onPrintFormatChange={(fmt) => setPrintFormat(fmt)}
-        onOpenCajaConfig={() => setCajaConfigOpen(true)}
-        printFormat={printFormat}
-      />
+        {/* Header */}
+        <HeaderBar
+          userName={userName}
+          userRole={userRole}
+          userId={userIdState}
+          caiInfo={caiInfoState}
+          onLogout={onLogout}
+          onNavigate={(v) => setView(v)}
+          onOpenDatosFactura={() => setDatosFacturaOpen(true)}
+          onPrintFormatChange={(fmt) => setPrintFormat(fmt)}
+          onOpenCajaConfig={() => setCajaConfigOpen(true)}
+          printFormat={printFormat}
+        />
 
-      <div className="pdv-main-container" style={{ padding: 16, maxWidth: 1600, margin: "0 auto" }}>
-        {/* Buscador y Filtro */}
         <div
-          className="pdv-search-bar"
-          style={{
-            background: "white",
-            padding: 14,
-            borderRadius: 10,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-            marginBottom: 16,
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
+          className="pdv-main-container"
+          style={{ padding: 16, maxWidth: 1600, margin: "0 auto" }}
         >
-          <input
-            type="text"
-            placeholder="Buscar por nombre o SKU..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const q = String(busqueda || "")
-                  .trim()
-                  .toLowerCase();
-                if (!q) return;
-                // Prefer exact SKU match, otherwise take first filtered
-                const exact = productosFiltrados.find(
-                  (p) => String(p.sku || "").toLowerCase() === q
-                );
-                const candidato = exact || productosFiltrados[0];
-                if (candidato) {
-                  const stockNum = Number(candidato.stock ?? 0);
-                  const precioNum = Number(candidato.precio ?? 0);
-                  if (stockNum >= 1 && precioNum > 0) {
-                    agregarAlCarrito(candidato);
-                  } else {
-                    // opcional: mostrar indicación rápida
-                    console.debug("No se puede agregar por stock/precio", {
-                      id: candidato.id,
-                      stockNum,
-                      precioNum,
-                    });
+          {/* Buscador y Filtro */}
+          <div
+            className="pdv-search-bar"
+            style={{
+              background: "white",
+              padding: 14,
+              borderRadius: 10,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+              marginBottom: 16,
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Buscar por nombre o SKU..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const q = String(busqueda || "")
+                    .trim()
+                    .toLowerCase();
+                  if (!q) return;
+                  // Prefer exact SKU match, otherwise take first filtered
+                  const exact = productosFiltrados.find(
+                    (p) => String(p.sku || "").toLowerCase() === q
+                  );
+                  const candidato = exact || productosFiltrados[0];
+                  if (candidato) {
+                    const stockNum = Number(candidato.stock ?? 0);
+                    const precioNum = Number(candidato.precio ?? 0);
+                    if (stockNum >= 1 && precioNum > 0) {
+                      agregarAlCarrito(candidato);
+                    } else {
+                      // opcional: mostrar indicación rápida
+                      console.debug("No se puede agregar por stock/precio", {
+                        id: candidato.id,
+                        stockNum,
+                        precioNum,
+                      });
+                    }
                   }
                 }
-              }
-            }}
-            style={{
-              flex: 1,
-              minWidth: 220,
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #cbd5e1",
-            }}
-          />
-          <select
-            value={categoriaFiltro}
-            onChange={(e) => setCategoriaFiltro(e.target.value)}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #cbd5e1",
-              minWidth: 140,
-            }}
-          >
-            {categorias.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-          {/* Tipo de cambio moved to CajaConfigModal; hidden from main header */}
-        </div>
-
-        {/* Layout de 2 columnas: Tabla + Carrito */}
-        <div
-          className="pdv-grid"
-          style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16 }}
-        >
-          {/* TABLA DE PRODUCTOS (componente separado) */}
-          <div
-            className="pdv-table-container"
-            style={{
-              background: "white",
-              borderRadius: 10,
-              overflow: "hidden",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-              minHeight: "50vh",
-              maxHeight: "70vh",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <ProductTable
-              productos={productosFiltrados}
-              imageUrls={imageUrls}
-              agregarAlCarrito={agregarAlCarrito}
-              openUbicacion={openUbicacion}
-              thStyle={thStyle}
-              tdStyle={tdStyle}
-              skuStyle={skuStyle}
-            />
-            {/* Botones de filtro por tipo */}
-            <div
-              className="pdv-buttons"
+              }}
               style={{
-                padding: "12px 16px",
-                background: "#f8fafc",
-                borderTop: "1px solid #e2e8f0",
-                display: "flex",
-                gap: 8,
-                justifyContent: "center",
+                flex: 1,
+                minWidth: 220,
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+              }}
+            />
+            <select
+              value={categoriaFiltro}
+              onChange={(e) => setCategoriaFiltro(e.target.value)}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                minWidth: 140,
               }}
             >
-              <button
-                className="pdv-button"
-                onClick={() => setTipoFiltro("producto")}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: "1px solid",
-                  borderColor:
-                    tipoFiltro === "producto" ? "#0ea5e9" : "#e2e8f0",
-                  background: tipoFiltro === "producto" ? "#0ea5e9" : "white",
-                  color: tipoFiltro === "producto" ? "white" : "#64748b",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                📦 Producto
-              </button>
-              <button
-                className="pdv-button"
-                onClick={() => setTipoFiltro("servicio")}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: "1px solid",
-                  borderColor:
-                    tipoFiltro === "servicio" ? "#0ea5e9" : "#e2e8f0",
-                  background: tipoFiltro === "servicio" ? "#0ea5e9" : "white",
-                  color: tipoFiltro === "servicio" ? "white" : "#64748b",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                ⚙️ Servicio
-              </button>
-              <button
-                className="pdv-button"
-                onClick={() => setShowEntradaManualModal(true)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: "1px solid #10b981",
-                  background: "#10b981",
-                  color: "white",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                ➕ Entrada Manual
-              </button>
-            </div>
+              {categorias.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+            {/* Tipo de cambio moved to CajaConfigModal; hidden from main header */}
           </div>
 
-          {/* CARRITO: componente separado */}
-          <Cart
-            carrito={carrito}
-            actualizarCantidad={actualizarCantidad}
-            eliminarDelCarrito={eliminarDelCarrito}
-            vaciarCarrito={vaciarCarrito}
-            subtotal={subtotal}
-            perItemTaxes={perItemTaxes}
-            taxRate={taxRate}
-            tax18Rate={tax18Rate}
-            taxTouristRate={taxTouristRate}
-            total={total}
-            openSelector={openSelector}
-            btnStyle={btnStyle}
-          />
-        </div>
-      </div>
-
-      <LocationModal
-        open={modalOpen}
-        selectedEntrada={selectedEntrada}
-        onClose={() => {
-          setModalOpen(false);
-          setSelectedEntrada(null);
-        }}
-        imageUrls={imageUrls}
-      />
-
-      {/* Payment modal component (independent) */}
-      <PaymentModal
-        open={paymentModalOpen}
-        totalDue={total}
-        exchangeRate={exchangeRate}
-        onClose={() => setPaymentModalOpen(false)}
-        onConfirm={async (p) => {
-          setPaymentInfo(p);
-          setPaymentDone(true);
-          // si se abrió para facturar inmediatamente (cliente final), proceder a facturar
-          if (invoiceAfterPayment) {
-            try {
-              setInvoiceAfterPayment(false);
-              await finalizeFacturaForCliente("Consumidor Final", "C/F", p);
-            } catch (e) {
-              console.warn("Error facturando después del pago:", e);
-            }
-          }
-          setPaymentModalOpen(false);
-        }}
-      />
-
-      {/* Modal: Configuración de caja (print format + tipo de cambio) */}
-      {/** lazy import component below */}
-      <React.Suspense fallback={null}>
-        {/* simple local import */}
-      </React.Suspense>
-
-      {/* Import modal component directly to keep simple */}
-      <CajaConfigModal
-        open={cajaConfigOpen}
-        onClose={() => setCajaConfigOpen(false)}
-        printFormat={printFormat}
-        onPrintFormatChange={(f) => setPrintFormat(f)}
-        exchangeRate={exchangeRate}
-        onExchangeRateChange={(v) => setExchangeRate(v)}
-      />
-
-      {/* Confirmación para guardar cotización (separada) */}
-      <CotizacionConfirmModal
-        open={cotizacionConfirmOpen}
-        onClose={() => setCotizacionConfirmOpen(false)}
-        onCancel={() => {
-          setCotizacionConfirmOpen(false);
-          setCotizacionPendingClient(null);
-        }}
-        onSave={async () => {
-          setCotizacionConfirmOpen(false);
-          try {
-            const saved = await saveCotizacion(cotizacionPendingClient || {});
-            if (saved && saved.id) setCotizacionEditId(String(saved.id));
-          } catch (e) {
-            console.warn("Error guardando cotizacion desde confirm modal", e);
-          }
-          setCotizacionPendingClient(null);
-        }}
-      />
-
-      <CotizacionModal
-        open={cotizacionModalOpen}
-        onClose={() => setCotizacionModalOpen(false)}
-        carritoLength={carrito.length}
-        subtotal={subtotalCalc()}
-        saveCotizacion={saveCotizacion}
-        finalizePrint={printCotizacionDirect}
-      />
-
-      <FacturarSelectorModal
-        open={facturarModalOpen}
-        onClose={() => setFacturarModalOpen(false)}
-        doFacturaClienteFinal={doFacturaClienteFinal}
-        doFacturaClienteNormal={doFacturaClienteNormal}
-        doFacturaClienteJuridico={doFacturaClienteJuridico}
-        carritoLength={carrito.length}
-        subtotal={subtotalCalc()}
-        taxRate={taxRate}
-        taxableSubtotal={taxableSubtotalCalc()}
-      />
-
-      <ClienteNormalModal
-        open={clienteNormalModalOpen}
-        onClose={() => setClienteNormalModalOpen(false)}
-        clienteTipo={clienteTipo}
-        clienteRTN={clienteRTN}
-        clienteNombre={clienteNombre}
-        clienteTelefono={clienteTelefono}
-        clienteCorreo={clienteCorreo}
-        clienteExonerado={clienteExonerado}
-        clienteSearchOpen={clienteSearchOpen}
-        setClienteSearchOpen={(v) => setClienteSearchOpen(v)}
-        onRTNChange={(v) => handleRTNChange(v)}
-        onNombreChange={(v) => setClienteNombre(v)}
-        onTelefonoChange={(v) => setClienteTelefono(v)}
-        onCorreoChange={(v) => setClienteCorreo(v)}
-        onExoneradoChange={(v) => setClienteExonerado(v)}
-        onCreateCliente={() => setCreateClienteModalOpen(true)}
-        onCancel={() => setClienteNormalModalOpen(false)}
-        onOpenCreateCliente={() => setCreateClienteModalOpen(true)}
-        onOpenPayment={() => setPaymentModalOpen(true)}
-        paymentDone={paymentDone}
-        submitClienteNormal={submitClienteNormal}
-      />
-
-      <CreateClienteModal
-        open={createClienteModalOpen}
-        onClose={() => setCreateClienteModalOpen(false)}
-        clienteRTN={clienteRTN}
-        clienteNombre={clienteNombre}
-        clienteTelefono={clienteTelefono}
-        clienteCorreo={clienteCorreo}
-        clienteExonerado={clienteExonerado}
-        onChangeRTN={(v) => setClienteRTN(v)}
-        onChangeNombre={(v) => setClienteNombre(v)}
-        onChangeTelefono={(v) => setClienteTelefono(v)}
-        onChangeCorreo={(v) => setClienteCorreo(v)}
-        onChangeExonerado={(v) => setClienteExonerado(v)}
-        onCreate={async () => {
-          try {
-            if (!clienteNombre || !clienteRTN) return;
-            const { data: existing, error: findErr } = await supabase
-              .from("clientes")
-              .select("id")
-              .eq("rtn", clienteRTN)
-              .maybeSingle();
-            if (findErr)
-              console.warn("Error buscando cliente al crear:", findErr);
-            if (existing && (existing as any).id) {
-              const { error: updErr } = await supabase
-                .from("clientes")
-                .update({
-                  nombre: clienteNombre,
-                  telefono: clienteTelefono || null,
-                  correo_electronica: clienteCorreo || null,
-                  tipo_cliente: "juridico",
-                  exonerado: clienteExonerado,
-                })
-                .eq("id", (existing as any).id);
-              if (updErr)
-                console.warn("Error actualizando cliente al crear:", updErr);
-            } else {
-              const { error: insErr } = await supabase.from("clientes").insert([
-                {
-                  nombre: clienteNombre,
-                  rtn: clienteRTN,
-                  telefono: clienteTelefono || null,
-                  correo_electronica: clienteCorreo || null,
-                  tipo_cliente: "juridico",
-                  exonerado: clienteExonerado,
-                },
-              ]);
-              if (insErr)
-                console.warn("Error insertando cliente al crear:", insErr);
-            }
-          } catch (e) {
-            console.warn("Error creando cliente juridico:", e);
-          }
-          setCreateClienteModalOpen(false);
-        }}
-      />
-
-      <DatosFacturaModal
-        open={datosFacturaOpen}
-        onClose={() => setDatosFacturaOpen(false)}
-        caiInfo={caiInfoState}
-        onRefresh={refreshCaiInfo}
-      />
-
-      {/* Modal: No Session Warning */}
-      {noSessionModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 3000,
-          }}
-        >
+          {/* Layout de 2 columnas: Tabla + Carrito */}
           <div
+            className="pdv-grid"
             style={{
-              background: "white",
-              padding: 24,
-              borderRadius: 12,
-              width: 400,
-              textAlign: "center",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              display: "grid",
+              gridTemplateColumns: "1fr 420px",
+              gap: 16,
             }}
           >
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-            <h3 style={{ margin: "0 0 12px 0", color: "#1e293b" }}>
-              Caja Cerrada
-            </h3>
-            <p style={{ color: "#64748b", marginBottom: 24, lineHeight: 1.5 }}>
-              Debes realizar la apertura de caja antes de poder realizar ventas.
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <button
-                className="btn-opaque"
-                onClick={() => setNoSessionModalOpen(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setNoSessionModalOpen(false);
-                  setView("CorteCajaParcial");
+            {/* TABLA DE PRODUCTOS (componente separado) */}
+            <div
+              className="pdv-table-container"
+              style={{
+                background: "white",
+                borderRadius: 10,
+                overflow: "hidden",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                minHeight: "50vh",
+                maxHeight: "70vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <ProductTable
+                productos={productosFiltrados}
+                imageUrls={imageUrls}
+                agregarAlCarrito={agregarAlCarrito}
+                openUbicacion={openUbicacion}
+                thStyle={thStyle}
+                tdStyle={tdStyle}
+                skuStyle={skuStyle}
+              />
+              {/* Botones de filtro por tipo */}
+              <div
+                className="pdv-buttons"
+                style={{
+                  padding: "12px 16px",
+                  background: "#f8fafc",
+                  borderTop: "1px solid #e2e8f0",
+                  display: "flex",
+                  gap: 8,
+                  justifyContent: "center",
                 }}
               >
-                Ir a Apertura
-              </button>
+                <button
+                  className="pdv-button"
+                  onClick={() => setTipoFiltro("producto")}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: "1px solid",
+                    borderColor:
+                      tipoFiltro === "producto" ? "#0ea5e9" : "#e2e8f0",
+                    background: tipoFiltro === "producto" ? "#0ea5e9" : "white",
+                    color: tipoFiltro === "producto" ? "white" : "#64748b",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  📦 Producto
+                </button>
+                <button
+                  className="pdv-button"
+                  onClick={() => setTipoFiltro("servicio")}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: "1px solid",
+                    borderColor:
+                      tipoFiltro === "servicio" ? "#0ea5e9" : "#e2e8f0",
+                    background: tipoFiltro === "servicio" ? "#0ea5e9" : "white",
+                    color: tipoFiltro === "servicio" ? "white" : "#64748b",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  ⚙️ Servicio
+                </button>
+                <button
+                  className="pdv-button"
+                  onClick={() => setShowEntradaManualModal(true)}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: "1px solid #10b981",
+                    background: "#10b981",
+                    color: "white",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  ➕ Entrada Manual
+                </button>
+              </div>
             </div>
+
+            {/* CARRITO: componente separado */}
+            <Cart
+              carrito={carrito}
+              actualizarCantidad={actualizarCantidad}
+              eliminarDelCarrito={eliminarDelCarrito}
+              vaciarCarrito={vaciarCarrito}
+              subtotal={subtotal}
+              perItemTaxes={perItemTaxes}
+              taxRate={taxRate}
+              tax18Rate={tax18Rate}
+              taxTouristRate={taxTouristRate}
+              total={total}
+              openSelector={openSelector}
+              btnStyle={btnStyle}
+            />
           </div>
         </div>
-      )}
 
-      {/* Modal: Entrada Manual de Servicio */}
-      {showEntradaManualModal && (
-        <EntradaManualModal
-          open={showEntradaManualModal}
-          onClose={() => setShowEntradaManualModal(false)}
-          onAgregar={(servicioData) => {
-            // Crear un producto temporal tipo servicio
-            const servicioTemporal: Producto = {
-              id: `temp-${Date.now()}`, // ID temporal único
-              nombre: servicioData.descripcion,
-              precio: servicioData.precio,
-              categoria: servicioData.tipo,
-              tipo: "servicio",
-              stock: 0,
-              exento: false,
-            };
-            agregarAlCarrito(servicioTemporal);
-            setShowEntradaManualModal(false);
+        <LocationModal
+          open={modalOpen}
+          selectedEntrada={selectedEntrada}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedEntrada(null);
+          }}
+          imageUrls={imageUrls}
+        />
+
+        {/* Payment modal component (independent) */}
+        <PaymentModal
+          open={paymentModalOpen}
+          totalDue={total}
+          exchangeRate={exchangeRate}
+          onClose={() => setPaymentModalOpen(false)}
+          onConfirm={async (p) => {
+            setPaymentInfo(p);
+            setPaymentDone(true);
+            // si se abrió para facturar inmediatamente (cliente final), proceder a facturar
+            if (invoiceAfterPayment) {
+              try {
+                setInvoiceAfterPayment(false);
+                await finalizeFacturaForCliente("Consumidor Final", "C/F", p);
+              } catch (e) {
+                console.warn("Error facturando después del pago:", e);
+              }
+            }
+            setPaymentModalOpen(false);
           }}
         />
-      )}
-    </div>
+
+        {/* Modal: Configuración de caja (print format + tipo de cambio) */}
+        {/** lazy import component below */}
+        <React.Suspense fallback={null}>
+          {/* simple local import */}
+        </React.Suspense>
+
+        {/* Import modal component directly to keep simple */}
+        <CajaConfigModal
+          open={cajaConfigOpen}
+          onClose={() => setCajaConfigOpen(false)}
+          printFormat={printFormat}
+          onPrintFormatChange={(f) => setPrintFormat(f)}
+          exchangeRate={exchangeRate}
+          onExchangeRateChange={(v) => setExchangeRate(v)}
+        />
+
+        {/* Confirmación para guardar cotización (separada) */}
+        <CotizacionConfirmModal
+          open={cotizacionConfirmOpen}
+          onClose={() => setCotizacionConfirmOpen(false)}
+          onCancel={() => {
+            setCotizacionConfirmOpen(false);
+            setCotizacionPendingClient(null);
+          }}
+          onSave={async () => {
+            setCotizacionConfirmOpen(false);
+            try {
+              const saved = await saveCotizacion(cotizacionPendingClient || {});
+              if (saved && saved.id) setCotizacionEditId(String(saved.id));
+            } catch (e) {
+              console.warn("Error guardando cotizacion desde confirm modal", e);
+            }
+            setCotizacionPendingClient(null);
+          }}
+        />
+
+        <CotizacionModal
+          open={cotizacionModalOpen}
+          onClose={() => setCotizacionModalOpen(false)}
+          carritoLength={carrito.length}
+          subtotal={subtotalCalc()}
+          saveCotizacion={saveCotizacion}
+          finalizePrint={printCotizacionDirect}
+        />
+
+        <FacturarSelectorModal
+          open={facturarModalOpen}
+          onClose={() => setFacturarModalOpen(false)}
+          doFacturaClienteFinal={doFacturaClienteFinal}
+          doFacturaClienteNormal={doFacturaClienteNormal}
+          doFacturaClienteJuridico={doFacturaClienteJuridico}
+          carritoLength={carrito.length}
+          subtotal={subtotalCalc()}
+          taxRate={taxRate}
+          taxableSubtotal={taxableSubtotalCalc()}
+        />
+
+        <ClienteNormalModal
+          open={clienteNormalModalOpen}
+          onClose={() => setClienteNormalModalOpen(false)}
+          clienteTipo={clienteTipo}
+          clienteRTN={clienteRTN}
+          clienteNombre={clienteNombre}
+          clienteTelefono={clienteTelefono}
+          clienteCorreo={clienteCorreo}
+          clienteExonerado={clienteExonerado}
+          clienteSearchOpen={clienteSearchOpen}
+          setClienteSearchOpen={(v) => setClienteSearchOpen(v)}
+          onRTNChange={(v) => handleRTNChange(v)}
+          onNombreChange={(v) => setClienteNombre(v)}
+          onTelefonoChange={(v) => setClienteTelefono(v)}
+          onCorreoChange={(v) => setClienteCorreo(v)}
+          onExoneradoChange={(v) => setClienteExonerado(v)}
+          onCreateCliente={() => setCreateClienteModalOpen(true)}
+          onCancel={() => setClienteNormalModalOpen(false)}
+          onOpenCreateCliente={() => setCreateClienteModalOpen(true)}
+          onOpenPayment={() => setPaymentModalOpen(true)}
+          paymentDone={paymentDone}
+          submitClienteNormal={submitClienteNormal}
+        />
+
+        <CreateClienteModal
+          open={createClienteModalOpen}
+          onClose={() => setCreateClienteModalOpen(false)}
+          clienteRTN={clienteRTN}
+          clienteNombre={clienteNombre}
+          clienteTelefono={clienteTelefono}
+          clienteCorreo={clienteCorreo}
+          clienteExonerado={clienteExonerado}
+          onChangeRTN={(v) => setClienteRTN(v)}
+          onChangeNombre={(v) => setClienteNombre(v)}
+          onChangeTelefono={(v) => setClienteTelefono(v)}
+          onChangeCorreo={(v) => setClienteCorreo(v)}
+          onChangeExonerado={(v) => setClienteExonerado(v)}
+          onCreate={async () => {
+            try {
+              if (!clienteNombre || !clienteRTN) return;
+              const { data: existing, error: findErr } = await supabase
+                .from("clientes")
+                .select("id")
+                .eq("rtn", clienteRTN)
+                .maybeSingle();
+              if (findErr)
+                console.warn("Error buscando cliente al crear:", findErr);
+              if (existing && (existing as any).id) {
+                const { error: updErr } = await supabase
+                  .from("clientes")
+                  .update({
+                    nombre: clienteNombre,
+                    telefono: clienteTelefono || null,
+                    correo_electronica: clienteCorreo || null,
+                    tipo_cliente: "juridico",
+                    exonerado: clienteExonerado,
+                  })
+                  .eq("id", (existing as any).id);
+                if (updErr)
+                  console.warn("Error actualizando cliente al crear:", updErr);
+              } else {
+                const { error: insErr } = await supabase
+                  .from("clientes")
+                  .insert([
+                    {
+                      nombre: clienteNombre,
+                      rtn: clienteRTN,
+                      telefono: clienteTelefono || null,
+                      correo_electronica: clienteCorreo || null,
+                      tipo_cliente: "juridico",
+                      exonerado: clienteExonerado,
+                    },
+                  ]);
+                if (insErr)
+                  console.warn("Error insertando cliente al crear:", insErr);
+              }
+            } catch (e) {
+              console.warn("Error creando cliente juridico:", e);
+            }
+            setCreateClienteModalOpen(false);
+          }}
+        />
+
+        <DatosFacturaModal
+          open={datosFacturaOpen}
+          onClose={() => setDatosFacturaOpen(false)}
+          caiInfo={caiInfoState}
+          onRefresh={refreshCaiInfo}
+        />
+
+        {/* Modal: No Session Warning */}
+        {noSessionModalOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 3000,
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                padding: 24,
+                borderRadius: 12,
+                width: 400,
+                textAlign: "center",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              }}
+            >
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+              <h3 style={{ margin: "0 0 12px 0", color: "#1e293b" }}>
+                Caja Cerrada
+              </h3>
+              <p
+                style={{ color: "#64748b", marginBottom: 24, lineHeight: 1.5 }}
+              >
+                Debes realizar la apertura de caja antes de poder realizar
+                ventas.
+              </p>
+              <div
+                style={{ display: "flex", justifyContent: "center", gap: 12 }}
+              >
+                <button
+                  className="btn-opaque"
+                  onClick={() => setNoSessionModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setNoSessionModalOpen(false);
+                    setView("CorteCajaParcial");
+                  }}
+                >
+                  Ir a Apertura
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Entrada Manual de Servicio */}
+        {showEntradaManualModal && (
+          <EntradaManualModal
+            open={showEntradaManualModal}
+            onClose={() => setShowEntradaManualModal(false)}
+            onAgregar={(servicioData) => {
+              // Crear un producto temporal tipo servicio
+              const servicioTemporal: Producto = {
+                id: `temp-${Date.now()}`, // ID temporal único
+                nombre: servicioData.descripcion,
+                precio: servicioData.precio,
+                categoria: servicioData.tipo,
+                tipo: "servicio",
+                stock: 0,
+                exento: false,
+              };
+              agregarAlCarrito(servicioTemporal);
+              setShowEntradaManualModal(false);
+            }}
+          />
+        )}
+      </div>
     </>
   );
 }

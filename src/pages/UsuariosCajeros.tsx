@@ -135,7 +135,8 @@ export default function UsuariosCajeros() {
       }
 
       const currentUser = JSON.parse(rawUser);
-      const currentUsername = currentUser?.username || currentUser?.user?.username;
+      const currentUsername =
+        currentUser?.username || currentUser?.user?.username;
 
       if (!currentUsername) {
         setPasswordError("No se pudo verificar el usuario actual");
@@ -171,9 +172,9 @@ export default function UsuariosCajeros() {
         .from("users")
         .delete()
         .eq("id", confirmDeleteId);
-      
+
       if (error) throw error;
-      
+
       await loadUsers();
       setConfirmDeleteOpen(false);
       setAdminPassword("");
@@ -700,8 +701,9 @@ export default function UsuariosCajeros() {
             </div>
 
             <p style={{ color: "#334155", marginBottom: "20px" }}>
-              ¿Estás seguro de eliminar al usuario <strong>"{confirmDeleteName}"</strong>?
-              Esta acción no se puede deshacer.
+              ¿Estás seguro de eliminar al usuario{" "}
+              <strong>"{confirmDeleteName}"</strong>? Esta acción no se puede
+              deshacer.
             </p>
 
             <div style={{ marginBottom: "20px" }}>
@@ -727,7 +729,9 @@ export default function UsuariosCajeros() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  border: passwordError ? "1px solid #ef4444" : "1px solid #cbd5e1",
+                  border: passwordError
+                    ? "1px solid #ef4444"
+                    : "1px solid #cbd5e1",
                   borderRadius: "8px",
                   fontSize: "0.95rem",
                   boxSizing: "border-box",
@@ -789,7 +793,8 @@ export default function UsuariosCajeros() {
                   borderRadius: "8px",
                   fontSize: "0.95rem",
                   fontWeight: 600,
-                  cursor: verifyingPassword || loading ? "not-allowed" : "pointer",
+                  cursor:
+                    verifyingPassword || loading ? "not-allowed" : "pointer",
                   border: "none",
                   background: "#ef4444",
                   color: "white",
@@ -799,7 +804,9 @@ export default function UsuariosCajeros() {
                 disabled={verifyingPassword || loading}
                 type="button"
               >
-                {verifyingPassword || loading ? "Verificando..." : "Eliminar usuario"}
+                {verifyingPassword || loading
+                  ? "Verificando..."
+                  : "Eliminar usuario"}
               </button>
             </div>
           </div>

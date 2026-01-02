@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Confirmado from "../../components/Confirmado";
+import { checkForUpdatesManually, performUpdate } from "../../components/VersionChecker";
 
 export default function DatosEmpresa() {
   const [company, setCompany] = useState<any | null>(null);
@@ -21,10 +22,12 @@ export default function DatosEmpresa() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   useEffect(() => {
     try {
-      const webEnabled = localStorage.getItem("webIntegrationEnabled") === "true";
+      const webEnabled =
+        localStorage.getItem("webIntegrationEnabled") === "true";
       setWebIntegrationEnabled(webEnabled);
     } catch {}
   }, []);
@@ -201,13 +204,13 @@ export default function DatosEmpresa() {
         setLogoPreviewUrl(null);
       }
     } catch {}
-      setEditForm(company || {});
-      try {
-        // Recargar la aplicación para que los cambios se reflejen globalmente
-        if (typeof window !== "undefined" && window.location) {
-          window.location.reload();
-        }
-      } catch {}
+    setEditForm(company || {});
+    try {
+      // Recargar la aplicación para que los cambios se reflejen globalmente
+      if (typeof window !== "undefined" && window.location) {
+        window.location.reload();
+      }
+    } catch {}
   }
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -377,12 +380,12 @@ export default function DatosEmpresa() {
         );
         setConfirmadoOpen(true);
       } catch {}
-        // Recargar la aplicación para que los cambios se reflejen globalmente
-        try {
-          if (typeof window !== "undefined" && window.location) {
-            window.location.reload();
-          }
-        } catch {}
+      // Recargar la aplicación para que los cambios se reflejen globalmente
+      try {
+        if (typeof window !== "undefined" && window.location) {
+          window.location.reload();
+        }
+      } catch {}
       // cleanup preview URL if any
       try {
         if (logoPreviewUrl) {
@@ -475,12 +478,12 @@ export default function DatosEmpresa() {
         "Los datos pendientes se sincronizaron con Supabase correctamente."
       );
       setConfirmadoOpen(true);
-        // Recargar la aplicación para que los cambios se reflejen globalmente
-        try {
-          if (typeof window !== "undefined" && window.location) {
-            window.location.reload();
-          }
-        } catch {}
+      // Recargar la aplicación para que los cambios se reflejen globalmente
+      try {
+        if (typeof window !== "undefined" && window.location) {
+          window.location.reload();
+        }
+      } catch {}
     } catch (err: any) {
       console.error("Error reenviando datos pendientes", err);
       setConfirmadoTitle("Error al reenviar");
@@ -515,10 +518,43 @@ export default function DatosEmpresa() {
       .catch(() => {});
   }
 
+  async function handleCheckUpdates() {
+    setCheckingUpdates(true);
+    try {
+      const { hasUpdate, versionInfo } = await checkForUpdatesManually();
+      
+      if (hasUpdate && versionInfo) {
+        const confirmUpdate = window.confirm(
+          `🚀 Nueva versión disponible: v${versionInfo.version}\n\n` +
+          `${versionInfo.changelog}\n\n` +
+          `¿Desea actualizar ahora? La aplicación se recargará.`
+        );
+        
+        if (confirmUpdate) {
+          await performUpdate(versionInfo.version);
+        }
+      } else {
+        setConfirmadoTitle("✅ Sistema actualizado");
+        setConfirmadoMessage(
+          `Estás usando la versión más reciente${
+            versionInfo ? `: v${versionInfo.version}` : ""
+          }`
+        );
+        setConfirmadoOpen(true);
+      }
+    } catch (error) {
+      setConfirmadoTitle("⚠️ Error");
+      setConfirmadoMessage("No se pudo verificar actualizaciones. Intenta más tarde.");
+      setConfirmadoOpen(true);
+    } finally {
+      setCheckingUpdates(false);
+    }
+  }
+
   return (
     <div style={{ padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Datos de mi empresa</h2>
-      
+
       {/* Web Integration Toggle */}
       <div
         style={{
@@ -597,6 +633,90 @@ export default function DatosEmpresa() {
         </label>
       </div>
 
+      {/* Check for Updates Button */}
+      <div
+        style={{
+          background: "#fff",
+          padding: 18,
+          borderRadius: 8,
+          marginBottom: 20,
+          boxShadow: "0 1px 3px rgba(2,6,23,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 600, fontSize: "1rem", marginBottom: 4 }}>
+            🔄 Actualizaciones de la aplicación
+          </div>
+          <div style={{ fontSize: "0.875rem", color: "#64748b" }}>
+            Verifica si hay una nueva versión disponible
+          </div>
+        </div>
+        <button
+          onClick={handleCheckUpdates}
+          disabled={checkingUpdates}
+          style={{
+            padding: "10px 20px",
+            background: checkingUpdates
+              ? "#cbd5e1"
+              : "linear-gradient(135deg, #3b82f6, #2563eb)",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize: "0.875rem",
+            cursor: checkingUpdates ? "not-allowed" : "pointer",
+            boxShadow: checkingUpdates
+              ? "none"
+              : "0 2px 8px rgba(59, 130, 246, 0.3)",
+            transition: "all 150ms",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+          onMouseEnter={(e) => {
+            if (!checkingUpdates) {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow =
+                "0 4px 12px rgba(59, 130, 246, 0.4)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = checkingUpdates
+              ? "none"
+              : "0 2px 8px rgba(59, 130, 246, 0.3)";
+          }}
+        >
+          {checkingUpdates ? (
+            <>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 14,
+                  height: 14,
+                  border: "2px solid rgba(255, 255, 255, 0.3)",
+                  borderTopColor: "white",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+              Verificando...
+            </>
+          ) : (
+            "Buscar actualizaciones"
+          )}
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       {/* Password Modal */}
       {showPasswordModal && (
         <div
@@ -662,7 +782,8 @@ export default function DatosEmpresa() {
             </div>
 
             <p style={{ color: "#334155", marginBottom: 20 }}>
-              Ingresa la clave de activación para habilitar los menús de integración web.
+              Ingresa la clave de activación para habilitar los menús de
+              integración web.
             </p>
 
             <div style={{ marginBottom: 20 }}>
@@ -688,7 +809,9 @@ export default function DatosEmpresa() {
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  border: passwordError ? "1px solid #ef4444" : "1px solid #cbd5e1",
+                  border: passwordError
+                    ? "1px solid #ef4444"
+                    : "1px solid #cbd5e1",
                   borderRadius: 8,
                   fontSize: "0.95rem",
                   boxSizing: "border-box",

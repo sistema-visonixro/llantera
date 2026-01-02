@@ -25,6 +25,7 @@ Este sistema permite notificar automáticamente a los usuarios de PWA cuando hay
 ```
 
 El script:
+
 - ✅ Incrementa automáticamente la versión
 - ✅ Actualiza la fecha de build
 - ✅ Guarda el mensaje del changelog
@@ -99,6 +100,7 @@ El componente `VersionChecker.tsx` incluye estilos CSS inline que puedes modific
 ### La PWA no se actualiza correctamente
 
 El componente `VersionChecker` limpia automáticamente:
+
 - Todos los caches del navegador
 - Todos los service workers registrados
 - Fuerza recarga completa
@@ -108,7 +110,7 @@ El componente `VersionChecker` limpia automáticamente:
 Ejecuta en la consola del navegador:
 
 ```javascript
-localStorage.setItem('app_current_version', '0.0.0');
+localStorage.setItem("app_current_version", "0.0.0");
 location.reload();
 ```
 

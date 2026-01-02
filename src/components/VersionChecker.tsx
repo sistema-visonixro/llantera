@@ -6,13 +6,84 @@ interface VersionInfo {
   changelog: string;
 }
 
+const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
+const CURRENT_VERSION_KEY = "app_current_version";
+
+// Export utility function for manual version check
+export const checkForUpdatesManually = async (): Promise<{
+  hasUpdate: boolean;
+  versionInfo: VersionInfo | null;
+}> => {
+  try {
+    const response = await fetch(`/version.json?t=${Date.now()}`, {
+      cache: "no-cache",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    if (!response.ok) {
+      return { hasUpdate: false, versionInfo: null };
+    }
+
+    const remoteVersion: VersionInfo = await response.json();
+    const localVersion = localStorage.getItem(CURRENT_VERSION_KEY);
+
+    if (!localVersion) {
+      localStorage.setItem(CURRENT_VERSION_KEY, remoteVersion.version);
+      return { hasUpdate: false, versionInfo: remoteVersion };
+    }
+
+    if (remoteVersion.version !== localVersion) {
+      return { hasUpdate: true, versionInfo: remoteVersion };
+    }
+
+    return { hasUpdate: false, versionInfo: remoteVersion };
+  } catch (error) {
+    console.debug("Error checking for updates:", error);
+    return { hasUpdate: false, versionInfo: null };
+  }
+};
+
+// Export utility function for performing update
+export const performUpdate = async (newVersion?: string) => {
+  try {
+    // Clear all caches
+    if ("caches" in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => caches.delete(cacheName))
+      );
+      console.log("All caches cleared");
+    }
+
+    // Unregister all service workers
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations.map((registration) => registration.unregister())
+      );
+      console.log("Service workers unregistered");
+    }
+
+    // Update stored version
+    if (newVersion) {
+      localStorage.setItem(CURRENT_VERSION_KEY, newVersion);
+    }
+
+    // Force reload from server
+    window.location.reload();
+  } catch (error) {
+    console.error("Error during update:", error);
+    // Still try to reload
+    window.location.reload();
+  }
+};
+
 export default function VersionChecker() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [newVersion, setNewVersion] = useState<VersionInfo | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-
-  const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
-  const CURRENT_VERSION_KEY = "app_current_version";
 
   const checkForUpdates = async () => {
     try {
@@ -56,39 +127,7 @@ export default function VersionChecker() {
 
   const handleUpdate = async () => {
     setIsUpdating(true);
-
-    try {
-      // Clear all caches
-      if ("caches" in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames.map((cacheName) => caches.delete(cacheName))
-        );
-        console.log("All caches cleared");
-      }
-
-      // Unregister all service workers
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(
-          registrations.map((registration) => registration.unregister())
-        );
-        console.log("Service workers unregistered");
-      }
-
-      // Update stored version
-      if (newVersion) {
-        localStorage.setItem(CURRENT_VERSION_KEY, newVersion.version);
-      }
-
-      // Force reload from server
-      window.location.reload();
-    } catch (error) {
-      console.error("Error during update:", error);
-      setIsUpdating(false);
-      // Still try to reload
-      window.location.reload();
-    }
+    await performUpdate(newVersion?.version);
   };
 
   const dismissUpdate = () => {

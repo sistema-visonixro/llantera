@@ -98,7 +98,9 @@ export default function RecordFormModal({
         <select
           className="input"
           value={form[col] ?? ""}
-          onChange={(e) => handleChange(col, e.target.value === "" ? null : e.target.value)}
+          onChange={(e) =>
+            handleChange(col, e.target.value === "" ? null : e.target.value)
+          }
         >
           <option value="">-- Seleccionar categoría --</option>
           <option value="SERVICIO">SERVICIO</option>

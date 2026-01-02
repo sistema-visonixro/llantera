@@ -158,7 +158,10 @@ export default function HeaderBar({
               }}
             />
           ) : null}
-          <div className="pv-header-title" style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
+          <div
+            className="pv-header-title"
+            style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}
+          >
             {companyName ? companyName : "Punto de Ventas"}
           </div>
         </div>

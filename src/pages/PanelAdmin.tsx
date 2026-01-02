@@ -90,7 +90,7 @@ const VIEW_COMPONENTS: Record<string, React.FC<any>> = {
 export default function PanelAdmin({ onLogout }: { onLogout: () => void }) {
   // Get filtered menu items based on web integration setting
   const menuItems = useMemo(() => getFilteredMenuItems(), []);
-  
+
   // Solo el estado de navegación es necesario en el componente principal
   const [active, setActive] = useState("dashboard");
   const [subActive, setSubActive] = useState<string | null>(null);

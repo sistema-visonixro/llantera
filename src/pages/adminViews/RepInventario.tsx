@@ -27,7 +27,7 @@ export default function RepInventario() {
         .from("inventario")
         .select("id, nombre, sku, marca, modelo, categoria, descripcion");
       // Excluir productos de la categoría 'SERVICIOS' (case-insensitive)
-      query = query.not('categoria', 'ilike', '%servicios%');
+      query = query.not("categoria", "ilike", "%servicios%");
       if (sku) query = query.ilike("sku", `%${sku}%`);
       if (marca) query = query.ilike("marca", `%${marca}%`);
       if (modelo) query = query.ilike("modelo", `%${modelo}%`);
