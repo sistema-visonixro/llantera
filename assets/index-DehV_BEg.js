@@ -754,11 +754,11 @@ ${w?w+" "+x+" al "+w+" "+j:x+" al "+j}</p>
               min-height: auto !important;
             }
             .pdv-grid {
-              grid-template-columns: 1fr !important;
-              gap: 12px !important;
+              grid-template-columns: 1fr 300px !important;
+              gap: 8px !important;
             }
             .pdv-cart {
-              max-height: 50vh !important;
+              max-height: 60vh !important;
             }
             .pdv-table-container {
               max-height: 60vh !important;
@@ -786,7 +786,11 @@ ${w?w+" "+x+" al "+w+" "+j:x+" al "+j}</p>
           }
           @media (max-width: 768px) {
             .pdv-grid {
-              grid-template-columns: 1fr !important;
+              grid-template-columns: 1fr 250px !important;
+              gap: 6px !important;
+            }
+            .pdv-main-container {
+              padding: 8px !important;
             }
             .pdv-search-bar {
               flex-direction: column !important;
