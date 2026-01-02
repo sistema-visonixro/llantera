@@ -1,6 +1,7 @@
 import './App.css'
 import { useState, useEffect } from 'react'
 import getCompanyData from './lib/getCompanyData'
+import PWAIconUpdater from './components/PWAIconUpdater'
 import Login from './pages/Login'
 import PuntoDeVentas from './pages/PuntoDeVentas'
 import PanelAdmin from './pages/PanelAdmin'
@@ -63,6 +64,7 @@ function App() {
 
   return (
     <div>
+      <PWAIconUpdater />
       {!user && <Login onLogin={handleLogin} />}
       {user && user.role === 'cajero' && <PuntoDeVentas onLogout={handleLogout} />}
       {user && user.role === 'admin' && <PanelAdmin onLogout={handleLogout} />}
