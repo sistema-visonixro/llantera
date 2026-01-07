@@ -821,103 +821,88 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // imprimir directamente usando un iframe (visible temporalmente para PWA)
+    // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
     try {
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.top = "0";
-      iframe.style.left = "0";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "0";
-      iframe.style.zIndex = "9999";
-      iframe.style.backgroundColor = "white";
-      document.body.appendChild(iframe);
-
-      const win = iframe.contentWindow;
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc || !win) {
-        try {
-          document.body.removeChild(iframe);
-        } catch (e) {}
-      } else {
-        doc.open();
-        doc.write(html);
-        doc.close();
-
-        const printWhenReady = () => {
-          try {
-            win.focus();
-            win.print();
-          } catch (e) {
-            console.warn("Error during iframe print (finalize):", e);
-          }
-          setTimeout(() => {
-            try {
-              document.body.removeChild(iframe);
-            } catch (e) {}
-          }, 800);
-        };
-
-        const tryPrint = () => {
-          try {
-            const imgs = doc.images;
-            if (imgs && imgs.length > 0) {
-              let loaded = 0;
-              for (let i = 0; i < imgs.length; i++) {
-                const img = imgs[i] as HTMLImageElement;
-                if (img.complete) {
-                  loaded++;
-                } else {
-                  img.addEventListener("load", () => {
-                    loaded++;
-                    if (loaded === imgs.length) printWhenReady();
-                  });
-                  img.addEventListener("error", () => {
-                    loaded++;
-                    if (loaded === imgs.length) printWhenReady();
-                  });
-                }
+      // Detectar si es móvil/tablet
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // En móviles: usar blob URL para abrir en nueva pestaña
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const newWindow = window.open(url, '_blank');
+        
+        if (newWindow) {
+          // Limpiar el blob URL después de un tiempo
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+          
+          // Intentar imprimir automáticamente después de cargar
+          newWindow.addEventListener('load', () => {
+            setTimeout(() => {
+              try {
+                newWindow.print();
+              } catch (e) {
+                console.debug("Auto-print no disponible en este navegador móvil");
               }
-              if (loaded === imgs.length) printWhenReady();
-            } else {
-              printWhenReady();
+            }, 500);
+          });
+        } else {
+          // Fallback si el popup fue bloqueado
+          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+        }
+      } else {
+        // En desktop: abrir ventana normal
+        const printWindow = window.open("", "_blank", "width=800,height=600");
+        if (printWindow) {
+          printWindow.document.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          
+          // Esperar a que carguen las imágenes antes de imprimir
+          const imgs = printWindow.document.images;
+          if (imgs && imgs.length > 0) {
+            let loaded = 0;
+            const checkLoaded = () => {
+              loaded++;
+              if (loaded === imgs.length) {
+                setTimeout(() => {
+                  try {
+                    printWindow.focus();
+                    printWindow.print();
+                  } catch (e) {
+                    console.warn("Error al imprimir:", e);
+                  }
+                }, 300);
+              }
+            };
+            
+            for (let i = 0; i < imgs.length; i++) {
+              const img = imgs[i] as HTMLImageElement;
+              if (img.complete) {
+                checkLoaded();
+              } else {
+                img.addEventListener("load", checkLoaded);
+                img.addEventListener("error", checkLoaded);
+              }
             }
-          } catch (e) {
-            try {
-              win.addEventListener("load", printWhenReady);
-            } catch (e) {}
-            setTimeout(printWhenReady, 1000);
+          } else {
+            // Sin imágenes, imprimir directamente
+            setTimeout(() => {
+              try {
+                printWindow.focus();
+                printWindow.print();
+              } catch (e) {
+                console.warn("Error al imprimir:", e);
+              }
+            }, 300);
           }
-        };
-
-        try {
-          if (doc.readyState === "complete") tryPrint();
-          else {
-            win.addEventListener("load", tryPrint);
-            setTimeout(tryPrint, 1500);
-          }
-        } catch (e) {
-          setTimeout(tryPrint, 800);
+        } else {
+          alert("Por favor, permite ventanas emergentes para imprimir la factura");
         }
       }
     } catch (e) {
-      console.warn(
-        "Direct print failed, falling back to opening new window",
-        e
-      );
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        setTimeout(() => {
-          try {
-            w.print();
-            w.close();
-          } catch (e) {}
-        }, 800);
-      }
+      console.error("Error abriendo ventana de impresión:", e);
+      alert("Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.");
     }
 
     // post-print cleanup
@@ -1972,103 +1957,88 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       }
     }
 
-    // imprimir directamente usando iframe (visible temporalmente para PWA)
+    // Abrir en nueva ventana/pestaña para que funcione correctamente en móviles/tablets
     try {
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.top = "0";
-      iframe.style.left = "0";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "0";
-      iframe.style.zIndex = "9999";
-      iframe.style.backgroundColor = "white";
-      document.body.appendChild(iframe);
-
-      const win = iframe.contentWindow;
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc || !win) {
-        try {
-          document.body.removeChild(iframe);
-        } catch (e) {}
-      } else {
-        doc.open();
-        doc.write(html);
-        doc.close();
-
-        const printWhenReady = () => {
-          try {
-            win.focus();
-            win.print();
-          } catch (e) {
-            console.warn("Error during iframe print (cliente normal):", e);
-          }
-          setTimeout(() => {
-            try {
-              document.body.removeChild(iframe);
-            } catch (e) {}
-          }, 800);
-        };
-
-        const tryPrint = () => {
-          try {
-            const imgs = doc.images;
-            if (imgs && imgs.length > 0) {
-              let loaded = 0;
-              for (let i = 0; i < imgs.length; i++) {
-                const img = imgs[i] as HTMLImageElement;
-                if (img.complete) {
-                  loaded++;
-                } else {
-                  img.addEventListener("load", () => {
-                    loaded++;
-                    if (loaded === imgs.length) printWhenReady();
-                  });
-                  img.addEventListener("error", () => {
-                    loaded++;
-                    if (loaded === imgs.length) printWhenReady();
-                  });
-                }
+      // Detectar si es móvil/tablet
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // En móviles: usar blob URL para abrir en nueva pestaña
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const newWindow = window.open(url, '_blank');
+        
+        if (newWindow) {
+          // Limpiar el blob URL después de un tiempo
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+          
+          // Intentar imprimir automáticamente después de cargar
+          newWindow.addEventListener('load', () => {
+            setTimeout(() => {
+              try {
+                newWindow.print();
+              } catch (e) {
+                console.debug("Auto-print no disponible en este navegador móvil");
               }
-              if (loaded === imgs.length) printWhenReady();
-            } else {
-              printWhenReady();
+            }, 500);
+          });
+        } else {
+          // Fallback si el popup fue bloqueado
+          alert("Por favor, permite ventanas emergentes para imprimir la factura");
+        }
+      } else {
+        // En desktop: abrir ventana normal
+        const printWindow = window.open("", "_blank", "width=800,height=600");
+        if (printWindow) {
+          printWindow.document.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          
+          // Esperar a que carguen las imágenes antes de imprimir
+          const imgs = printWindow.document.images;
+          if (imgs && imgs.length > 0) {
+            let loaded = 0;
+            const checkLoaded = () => {
+              loaded++;
+              if (loaded === imgs.length) {
+                setTimeout(() => {
+                  try {
+                    printWindow.focus();
+                    printWindow.print();
+                  } catch (e) {
+                    console.warn("Error al imprimir:", e);
+                  }
+                }, 300);
+              }
+            };
+            
+            for (let i = 0; i < imgs.length; i++) {
+              const img = imgs[i] as HTMLImageElement;
+              if (img.complete) {
+                checkLoaded();
+              } else {
+                img.addEventListener("load", checkLoaded);
+                img.addEventListener("error", checkLoaded);
+              }
             }
-          } catch (e) {
-            try {
-              win.addEventListener("load", printWhenReady);
-            } catch (e) {}
-            setTimeout(printWhenReady, 1000);
+          } else {
+            // Sin imágenes, imprimir directamente
+            setTimeout(() => {
+              try {
+                printWindow.focus();
+                printWindow.print();
+              } catch (e) {
+                console.warn("Error al imprimir:", e);
+              }
+            }, 300);
           }
-        };
-
-        try {
-          if (doc.readyState === "complete") tryPrint();
-          else {
-            win.addEventListener("load", tryPrint);
-            setTimeout(tryPrint, 1500);
-          }
-        } catch (e) {
-          setTimeout(tryPrint, 800);
+        } else {
+          alert("Por favor, permite ventanas emergentes para imprimir la factura");
         }
       }
     } catch (e) {
-      console.warn(
-        "Direct print (cliente normal) failed, falling back to new window",
-        e
-      );
-      const w = window.open("", "_blank");
-      if (w) {
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        setTimeout(() => {
-          try {
-            w.print();
-            w.close();
-          } catch (e) {}
-        }, 800);
-      }
+      console.error("Error abriendo ventana de impresión:", e);
+      alert("Error al abrir la ventana de impresión. Por favor, verifica los permisos de ventanas emergentes.");
     }
     const afterFinish = async () => {
       if (printingMode === "factura") {

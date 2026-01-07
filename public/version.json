@@ -1,5 +1,5 @@
 {
-  "version": "1.2.3",
-  "buildDate": "2026-01-07T12:00:00.000Z",
-  "changelog": "Mejora: impresión en PWA/tablets — factura y cotización muestran correctamente el documento en modal para imprimir/guardar como PDF"
+  "version": "1.2.4",
+  "buildDate": "2026-01-07T14:00:00.000Z",
+  "changelog": "Fix crítico: impresión en móviles/tablets ahora abre factura en nueva pestaña para imprimir/guardar PDF correctamente. Service Worker mejorado con network-first para JS/CSS"
 }
