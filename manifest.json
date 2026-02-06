@@ -1,6 +1,6 @@
 {
-  "name": "SET - Sistema de Punto de Ventas",
-  "short_name": "SET POS",
+  "name": "ViSonixRo - Sistema de Punto de Ventas",
+  "short_name": "ViSonixRo",
   "id": "/",
   "description": "Sistema de punto de ventas y gestión de inventario",
   "start_url": "/",
@@ -12,7 +12,14 @@
   "theme_color": "#1e293b",
   "lang": "es",
   "dir": "ltr",
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "/iconos/android/android-launchericon-512-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
   "icons": [
     {
       "src": "/iconos/android/android-launchericon-48-48.png",
