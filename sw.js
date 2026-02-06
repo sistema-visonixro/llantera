@@ -1,5 +1,5 @@
-const CACHE_VERSION = "1.2.4"; // Actualizar con cada release
-const CACHE_NAME = `set-oficial-v${CACHE_VERSION}`;
+const CACHE_VERSION = "1.2.5"; // Actualizar con cada release
+const CACHE_NAME = `visonixro-v${CACHE_VERSION}`;
 const urlsToCache = ["/", "/index.html", "/manifest.json"];
 
 // Install event - cache resources
