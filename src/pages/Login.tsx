@@ -19,7 +19,7 @@ export default function Login({ onLogin }: LoginProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
-  const [companyName, setCompanyName] = useState('SET')
+  const [companyName, setCompanyName] = useState('ViSonixRo')
   const [companyLogo, setCompanyLogo] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function Login({ onLogin }: LoginProps) {
     try {
       const company = await getCompanyData()
       if (company) {
-        setCompanyName(company.nombre || 'SET')
+        setCompanyName(company.nombre || 'ViSonixRo')
         setCompanyLogo(company.logoUrl || null)
       }
     } catch (err) {

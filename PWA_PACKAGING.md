@@ -53,8 +53,8 @@ Una vez que los errores estén resueltos (todos en verde):
 1. Click en **"Package For Stores"**
 2. Selecciona **Windows**
 3. Configura opciones:
-   - **Package ID**: com.tupaquete.setpos (o el que prefieras)
-   - **Publisher Display Name**: Tu nombre o empresa
+   - **Package ID**: com.visonixro.pos (o el que prefieras)
+   - **Publisher Display Name**: ViSonixRo
    - **Version**: 1.0.0
 4. Click en **"Generate"**
 5. Descarga el paquete MSIX
