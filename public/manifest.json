@@ -1,10 +1,12 @@
 {
   "name": "SET - Sistema de Punto de Ventas",
   "short_name": "SET POS",
+  "id": "/",
   "description": "Sistema de punto de ventas y gestión de inventario",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#1e293b",
@@ -50,5 +52,6 @@
     }
   ],
   "categories": ["business", "productivity"],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "related_applications": []
 }
