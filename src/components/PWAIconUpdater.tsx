@@ -56,7 +56,7 @@ export default function PWAIconUpdater() {
 
         // Update apple-touch-icon
         let appleTouchIcon = document.querySelector(
-          'link[rel="apple-touch-icon"]'
+          'link[rel="apple-touch-icon"]',
         ) as HTMLLinkElement;
         if (!appleTouchIcon) {
           appleTouchIcon = document.createElement("link") as HTMLLinkElement;
@@ -67,7 +67,7 @@ export default function PWAIconUpdater() {
 
         // Update favicon
         let favicon = document.querySelector(
-          'link[rel="icon"]'
+          'link[rel="icon"]',
         ) as HTMLLinkElement;
         if (favicon) {
           favicon.setAttribute("href", logoUrl);
