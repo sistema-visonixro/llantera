@@ -1,5 +1,5 @@
 {
-  "version": "1.2.4",
-  "buildDate": "2026-01-07T14:00:00.000Z",
-  "changelog": "Fix crítico: impresión en móviles/tablets ahora abre factura en nueva pestaña para imprimir/guardar PDF correctamente. Service Worker mejorado con network-first para JS/CSS"
+  "version": "1.2.5",
+  "buildDate": "2026-02-05T20:00:00.000Z",
+  "changelog": "Actualización completa: Rebrand a ViSonixRo, manifest PWA optimizado para empaquetado Windows/Android, mejoras en UX y configuración para instalación como app nativa"
 }
