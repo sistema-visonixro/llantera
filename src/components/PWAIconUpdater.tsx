@@ -13,7 +13,7 @@ export default function PWAIconUpdater() {
 
         const logoUrl = company.logoUrl;
         const companyName =
-          company.nombre || company.comercio || company.name || "SET POS";
+          company.nombre || company.comercio || company.name || "ViSonixRo";
 
         // Update manifest dynamically
         const manifestLink = document.querySelector('link[rel="manifest"]');
