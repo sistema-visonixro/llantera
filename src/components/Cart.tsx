@@ -23,11 +23,12 @@ type Props = {
   tax18Rate: number
   taxTouristRate: number
   total: number
+  clienteExonerado: boolean
   openSelector: (mode: 'factura' | 'cotizacion') => void
   btnStyle: React.CSSProperties
 }
 
-export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, vaciarCarrito, subtotal, perItemTaxes, taxRate, tax18Rate, taxTouristRate, total, openSelector, btnStyle }: Props) {
+export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, vaciarCarrito, subtotal, perItemTaxes, taxRate, tax18Rate, taxTouristRate, total, clienteExonerado, openSelector, btnStyle }: Props) {
   return (
     <div style={{
       background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
@@ -141,6 +142,12 @@ export default function Cart({ carrito, actualizarCantidad, eliminarDelCarrito, 
               <span>Impuesto 18%:</span>
               <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.imp18 || 0), 0))).toFixed(2)}</strong>
             </div>
+            {clienteExonerado && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span>ISV Exonerado:</span>
+                <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.isv || 0), 0))).toFixed(2)}</strong>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Imp. Turístico ({(taxTouristRate * 100)}%):</span>
               <strong style={{ color: '#475569' }}>L{(Number(perItemTaxes.reduce((s, it) => s + (it.tur || 0), 0))).toFixed(2)}</strong>

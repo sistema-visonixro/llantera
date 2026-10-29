@@ -123,7 +123,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       impTouristTotal += taxAmount * (turRate / combined);
     }
   }
-  const isvTotal = clienteExonerado ? 0 : isvCalculado;
+  const isvTotal = isvCalculado;
+  const isvExonerado = clienteExonerado ? isvTotal : 0;
 
   const printCotizacionDirect = async (
     cliente: string,
@@ -145,11 +146,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       skipCotizacionConfirmRef.current = false;
     }
   };
-  // Prices include taxes; an exempt client does not pay the included ISV 15%.
-  const total = Math.max(0, grossTotal - (clienteExonerado ? isvCalculado : 0));
   const subtotal = Math.max(
     0,
     grossTotal - (isvCalculado + imp18Total + impTouristTotal)
+  );
+  // Prices include taxes; an exempt client receives the ISV 15% as a deduction.
+  const total = Math.max(
+    0,
+    subtotal + isvTotal + imp18Total + impTouristTotal - isvExonerado
   );
   // Per-item tax breakdown for UI/debugging
   const perItemTaxes = carrito.map((item) => {
@@ -181,8 +185,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         totalTax: 0,
       };
     const taxAmount = price - price / (1 + combined);
-    const isvPart =
-      clienteExonerado || aplica18 ? 0 : taxAmount * (mainRate / combined);
+    const isvPart = aplica18 ? 0 : taxAmount * (mainRate / combined);
     const imp18Part = aplica18 ? taxAmount * (mainRate / combined) : 0;
     const turPart = aplicaTur ? taxAmount * (turRate / combined) : 0;
     return {
@@ -406,7 +409,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       const impTurVal = impTouristTotal;
       const impuestoVal =
         Number(isvVal || 0) + Number(imp18Val || 0) + Number(impTurVal || 0);
-      const totalVal = subtotalVal + impuestoVal;
+      const totalVal = subtotalVal + impuestoVal - isvExonerado;
 
       // try resolve cliente_id if rtn provided or use opts.cliente_id
       let clienteId: number | null = opts.cliente_id ?? null;
@@ -3176,6 +3179,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
               tax18Rate={tax18Rate}
               taxTouristRate={taxTouristRate}
               total={total}
+              clienteExonerado={clienteExonerado}
               openSelector={openSelector}
               btnStyle={btnStyle}
             />

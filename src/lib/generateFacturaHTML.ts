@@ -112,6 +112,7 @@ export async function generateFacturaHTML(
 	const constanciaRegistroExonerado = opts.constanciaRegistroExonerado || params.constanciaRegistroExonerado || '-'
 	const registroSag = opts.registroSag || params.registroSag || '-'
 	const impuesto = typeof params.isvTotal === 'number' ? params.isvTotal : 0
+	const subtotalMostrado = esExonerado ? subtotal + impuesto : Gravado
 	const ISV18 = typeof params.imp18Total === 'number' ? params.imp18Total : 0
 	const isv4 = typeof params.impTouristTotal === 'number' ? params.impTouristTotal : 0
 	// Determine gross total (totalFactura). Prefer explicit `params.total` if provided,
@@ -277,12 +278,12 @@ export async function generateFacturaHTML(
 
 	<section class="totals-section">
     <span class="label">Descuento:</span> <span class="value">L ${DSC.toFixed(2)}</span>
-    <span class="label">Sub Total Exonerado:</span> <span class="value">L ${Number(exonerado).toFixed(2)}</span>
-    <span class="label">Sub Total Gravado:</span> <span class="value">L ${Number(Gravado).toFixed(2)}</span>
+	<span class="label">Sub Total Gravado:</span> <span class="value">L ${Number(subtotalMostrado).toFixed(2)}</span>
     <span class="label">Sub Total Exento:</span> <span class="value">L ${Number(Exento).toFixed(2)}</span>
     <span class="label">Tasa Turística 4%:</span> <span class="value">L ${Number(isv4).toFixed(2)}</span>
     <span class="label">ISV 15%:</span> <span class="value">L ${Number(impuesto).toFixed(2)}</span>
     <span class="label">ISV 18%:</span> <span class="value">L ${Number(ISV18).toFixed(2)}</span>
+	<span class="label">ISV Exonerado:</span> <span class="value">L ${Number(esExonerado ? impuesto : 0).toFixed(2)}</span>
 </section>
 
 <section class="transaccion-section"><hr class="divider" />
