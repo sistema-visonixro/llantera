@@ -1,4 +1,4 @@
-const CACHE_VERSION = "1.2.6"; // Actualizar con cada release
+const CACHE_VERSION = "1.2.7"; // Actualizar con cada release
 const CACHE_NAME = `visonixro-v${CACHE_VERSION}`;
 const urlsToCache = ["/", "/index.html", "/manifest.json"];
 
@@ -40,6 +40,31 @@ self.addEventListener("activate", (event) => {
 // Fetch event - Network first for JS/CSS, cache first for others
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+
+  // Always prefer the current app shell; a cached HTML file can reference
+  // JavaScript bundles that were removed by a newer deployment.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match("/index.html").then((index) => {
+              return index || new Response("Offline", { status: 503 });
+            });
+          })
+        )
+    );
+    return;
+  }
   
   // Network-first strategy for JS, CSS, and JSON files (always get fresh code)
   if (
