@@ -38,11 +38,20 @@
     <script>
       // Register Service Worker for PWA
       if ("serviceWorker" in navigator) {
+        const hadServiceWorkerController = Boolean(navigator.serviceWorker.controller);
+        if (hadServiceWorkerController) {
+          navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            () => window.location.reload(),
+            { once: true },
+          );
+        }
         window.addEventListener("load", () => {
           navigator.serviceWorker
-            .register("/sw.js")
+            .register("/sw.js", { updateViaCache: "none" })
             .then((registration) => {
               console.log("SW registered:", registration);
+              return registration.update();
             })
             .catch((err) => {
               console.log("SW registration failed:", err);
