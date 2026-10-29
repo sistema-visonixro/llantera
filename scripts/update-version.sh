@@ -55,6 +55,8 @@ cat > $VERSION_FILE << EOF
 }
 EOF
 
+sed -i "s/^const CACHE_VERSION = \".*\";/const CACHE_VERSION = \"$NEW_VERSION\";/" public/sw.js
+
 echo "✅ Versión actualizada exitosamente"
 echo ""
 echo "📌 Siguiente paso: git add $VERSION_FILE && git commit -m \"v$NEW_VERSION: $CHANGELOG_MESSAGE\" && git push"
