@@ -11,6 +11,9 @@ type ClienteRow = {
   correo_electronico?: string
   tipo_cliente?: string
   exonerado?: boolean
+  orden_compra_exenta?: string
+  constancia_registro_exonerado?: string
+  registro_sag?: string
 }
 
 export default function Clientes() {
@@ -26,6 +29,9 @@ export default function Clientes() {
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [clienteCorreo, setClienteCorreo] = useState('')
   const [clienteExonerado, setClienteExonerado] = useState(false)
+  const [ordenCompraExenta, setOrdenCompraExenta] = useState('')
+  const [constanciaRegistroExonerado, setConstanciaRegistroExonerado] = useState('')
+  const [registroSag, setRegistroSag] = useState('')
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ClienteRow | null>(null)
@@ -39,11 +45,11 @@ export default function Clientes() {
         const term = q.trim()
         const pattern = `%${term}%`
         res = await supabase.from('clientes')
-          .select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado')
+          .select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag')
           .or(`nombre.ilike.${pattern},rtn.ilike.${pattern}`)
           .order('id', { ascending: false })
       } else {
-        res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado').order('id', { ascending: false }).limit(500)
+        res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag').order('id', { ascending: false }).limit(500)
       }
       if (res.error) throw res.error
       setRows(Array.isArray(res.data) ? res.data as ClienteRow[] : [])
@@ -67,6 +73,9 @@ export default function Clientes() {
     setClienteTelefono('')
     setClienteCorreo('')
     setClienteExonerado(false)
+    setOrdenCompraExenta('')
+    setConstanciaRegistroExonerado('')
+    setRegistroSag('')
     setCreateOpen(true)
   }
 
@@ -82,6 +91,9 @@ export default function Clientes() {
         // do not force tipo_cliente here to avoid violating DB check constraints;
         // let DB default or existing value remain unless user explicitly edits it
         exonerado: clienteExonerado || false,
+        orden_compra_exenta: ordenCompraExenta || null,
+        constancia_registro_exonerado: constanciaRegistroExonerado || null,
+        registro_sag: registroSag || null,
       }
       if (!payload.nombre) throw new Error('El campo nombre es requerido')
 
@@ -113,6 +125,9 @@ export default function Clientes() {
     setClienteTelefono(row.telefono || '')
     setClienteCorreo(row.correo_electronico || '')
     setClienteExonerado(Boolean(row.exonerado))
+    setOrdenCompraExenta(row.orden_compra_exenta || '')
+    setConstanciaRegistroExonerado(row.constancia_registro_exonerado || '')
+    setRegistroSag(row.registro_sag || '')
     setCreateOpen(true)
   }
 
@@ -186,11 +201,17 @@ export default function Clientes() {
         clienteTelefono={clienteTelefono}
         clienteCorreo={clienteCorreo}
         clienteExonerado={clienteExonerado}
+        ordenCompraExenta={ordenCompraExenta}
+        constanciaRegistroExonerado={constanciaRegistroExonerado}
+        registroSag={registroSag}
         onChangeRTN={v => setClienteRTN(v)}
         onChangeNombre={v => setClienteNombre(v)}
         onChangeTelefono={v => setClienteTelefono(v)}
         onChangeCorreo={v => setClienteCorreo(v)}
         onChangeExonerado={v => setClienteExonerado(v)}
+        onChangeOrdenCompraExenta={setOrdenCompraExenta}
+        onChangeConstanciaRegistroExonerado={setConstanciaRegistroExonerado}
+        onChangeRegistroSag={setRegistroSag}
         onCreate={async () => { await handleCreateOrUpdate() }}
       />
 

@@ -9,15 +9,21 @@ type Props = {
   clienteTelefono: string
   clienteCorreo: string
   clienteExonerado: boolean
+  ordenCompraExenta: string
+  constanciaRegistroExonerado: string
+  registroSag: string
   onChangeRTN: (v: string) => void
   onChangeNombre: (v: string) => void
   onChangeTelefono: (v: string) => void
   onChangeCorreo: (v: string) => void
   onChangeExonerado: (v: boolean) => void
+  onChangeOrdenCompraExenta: (v: string) => void
+  onChangeConstanciaRegistroExonerado: (v: string) => void
+  onChangeRegistroSag: (v: string) => void
   onCreate: () => Promise<void>
 }
 
-export default function CreateClienteModal({ open, onClose, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, onChangeRTN, onChangeNombre, onChangeTelefono, onChangeCorreo, onChangeExonerado, onCreate }: Props) {
+export default function CreateClienteModal({ open, onClose, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, ordenCompraExenta, constanciaRegistroExonerado, registroSag, onChangeRTN, onChangeNombre, onChangeTelefono, onChangeCorreo, onChangeExonerado, onChangeOrdenCompraExenta, onChangeConstanciaRegistroExonerado, onChangeRegistroSag, onCreate }: Props) {
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -50,6 +56,18 @@ export default function CreateClienteModal({ open, onClose, clienteRTN, clienteN
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input id="exon" type="checkbox" checked={clienteExonerado} onChange={e => onChangeExonerado(e.target.checked)} />
             <label htmlFor="exon">Exonerado</label>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 13, color: '#334155' }}>No. de orden de compra exenta</label>
+            <input value={ordenCompraExenta} onChange={e => onChangeOrdenCompraExenta(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 13, color: '#334155' }}>No. de constancia de registro exonerado</label>
+            <input value={constanciaRegistroExonerado} onChange={e => onChangeConstanciaRegistroExonerado(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 13, color: '#334155' }}>No. de registro SAG</label>
+            <input value={registroSag} onChange={e => onChangeRegistroSag(e.target.value)} />
           </div>
         </div>
 

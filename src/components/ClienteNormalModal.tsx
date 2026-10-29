@@ -11,6 +11,9 @@ type Props = {
   clienteTelefono: string
   clienteCorreo: string
   clienteExonerado: boolean
+  ordenCompraExenta: string
+  constanciaRegistroExonerado: string
+  registroSag: string
   clienteSearchOpen: boolean
   setClienteSearchOpen: (v: boolean) => void
   onRTNChange: (v: string) => void
@@ -18,6 +21,9 @@ type Props = {
   onTelefonoChange: (v: string) => void
   onCorreoChange: (v: string) => void
   onExoneradoChange: (v: boolean) => void
+  onOrdenCompraExentaChange: (v: string) => void
+  onConstanciaRegistroExoneradoChange: (v: string) => void
+  onRegistroSagChange: (v: string) => void
   onCreateCliente: () => void
   onCancel: () => void
   onOpenCreateCliente: () => void
@@ -26,7 +32,7 @@ type Props = {
   submitClienteNormal: () => Promise<void>
 }
 
-export default function ClienteNormalModal({ open, onClose, clienteTipo, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, clienteSearchOpen, setClienteSearchOpen, onRTNChange, onNombreChange, onTelefonoChange, onCorreoChange, onExoneradoChange, onCreateCliente, onCancel, onOpenCreateCliente, onOpenPayment, paymentDone, submitClienteNormal }: Props) {
+export default function ClienteNormalModal({ open, onClose, clienteTipo, clienteRTN, clienteNombre, clienteTelefono, clienteCorreo, clienteExonerado, ordenCompraExenta, constanciaRegistroExonerado, registroSag, clienteSearchOpen, setClienteSearchOpen, onRTNChange, onNombreChange, onTelefonoChange, onCorreoChange, onExoneradoChange, onOrdenCompraExentaChange, onConstanciaRegistroExoneradoChange, onRegistroSagChange, onCreateCliente, onCancel, onOpenCreateCliente, onOpenPayment, paymentDone, submitClienteNormal }: Props) {
   if (!open) return null
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -55,6 +61,34 @@ export default function ClienteNormalModal({ open, onClose, clienteTipo, cliente
           </div>
         </div>
 
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={clienteExonerado}
+              onChange={e => onExoneradoChange(e.target.checked)}
+            />
+            Cliente exonerado
+          </label>
+        </div>
+
+        {clienteExonerado && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, color: '#334155' }}>No. de orden de compra exenta</label>
+              <input value={ordenCompraExenta} onChange={e => onOrdenCompraExentaChange(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, color: '#334155' }}>No. de constancia de registro exonerado</label>
+              <input value={constanciaRegistroExonerado} onChange={e => onConstanciaRegistroExoneradoChange(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 13, color: '#334155' }}>No. de registro SAG</label>
+              <input value={registroSag} onChange={e => onRegistroSagChange(e.target.value)} />
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <ClienteSearchModal open={clienteSearchOpen} onClose={() => setClienteSearchOpen(false)} onSelect={(c: any) => {
             // llenar campos con cliente seleccionado
@@ -65,11 +99,17 @@ export default function ClienteNormalModal({ open, onClose, clienteTipo, cliente
                 const telefono = c.telefono || ''
                 const correo = c.correo_electronico || ''
                 const exo = Boolean((c as any).exonerado)
+                const ordenCompraExenta = c.orden_compra_exenta || ''
+                const constanciaRegistroExonerado = c.constancia_registro_exonerado || ''
+                const registroSag = c.registro_sag || ''
                 try { onRTNChange(String(rtn || '')) } catch (e) {}
                 try { onNombreChange(String(nombre || '')) } catch (e) {}
                 try { onTelefonoChange(String(telefono || '')) } catch (e) {}
                 try { onCorreoChange(String(correo || '')) } catch (e) {}
                 try { onExoneradoChange(Boolean(exo)) } catch (e) {}
+                onOrdenCompraExentaChange(String(ordenCompraExenta))
+                onConstanciaRegistroExoneradoChange(String(constanciaRegistroExonerado))
+                onRegistroSagChange(String(registroSag))
               }
             } catch (e) {}
             setClienteSearchOpen(false)

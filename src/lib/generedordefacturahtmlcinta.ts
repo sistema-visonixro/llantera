@@ -105,8 +105,12 @@ export async function generateFacturaHTMLCinta(
     const subtotal = typeof params.subtotal === 'number' ? params.subtotal : carrito.reduce((s: number, it: any) => s + (Number((it.producto && it.producto.precio) || it.precio || 0) * (it.cantidad || 1)), 0)
     const DSC = typeof params.descuento === 'number' ? params.descuento : 0
     const exonerado = typeof params.exonerado === 'number' ? params.exonerado : 0
+    const esExonerado = Boolean(opts.exonerado ?? params.clienteExonerado)
     const Gravado = typeof params.gravado === 'number' ? params.gravado : subtotal
     const Exento = typeof params.exento === 'number' ? params.exento : 0
+    const ordenCompraExenta = opts.ordenCompraExenta || params.ordenCompraExenta || '-'
+    const constanciaRegistroExonerado = opts.constanciaRegistroExonerado || params.constanciaRegistroExonerado || '-'
+    const registroSag = opts.registroSag || params.registroSag || '-'
     const impuesto = typeof params.isvTotal === 'number' ? params.isvTotal : 0
     const ISV18 = typeof params.imp18Total === 'number' ? params.imp18Total : 0
     const isv4 = typeof params.impTouristTotal === 'number' ? params.impTouristTotal : 0
@@ -222,6 +226,9 @@ ${identificador ? (identificador + ' ' + rangoAutorizadoDe + ' al ' + identifica
 
 <p>Cliente: ${cliente}</p>
 <p>RTN Cliente: ${identidad}</p>
+${esExonerado ? `<p>No. de orden de compra exenta: ${ordenCompraExenta}</p>
+<p>No. de constancia de registro exonerado: ${constanciaRegistroExonerado}</p>
+<p>No. de registro SAG: ${registroSag}</p>` : ''}
 
 <div class="line"></div>
 
@@ -342,7 +349,5 @@ function numeroALetras(num: number) {
     return partes.join(' ').trim()
 }
 // Utility to generate factura/cotización HTML from provided cart and totals
-
-
 
 

@@ -10,6 +10,9 @@ type Cliente = {
   correo_electronico?: string
   tipo_cliente?: string
   exonerado?: boolean
+  orden_compra_exenta?: string
+  constancia_registro_exonerado?: string
+  registro_sag?: string
 }
 
 export default function ClienteSearchModal({ open, onClose, onSelect }:
@@ -24,7 +27,7 @@ export default function ClienteSearchModal({ open, onClose, onSelect }:
     ;(async () => {
       setLoading(true)
       try {
-        const { data, error } = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado').order('id', { ascending: false }).limit(100)
+        const { data, error } = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag').order('id', { ascending: false }).limit(100)
         if (error) throw error
         if (mounted) setClientes(Array.isArray(data) ? data as Cliente[] : [])
       } catch (e) {
@@ -44,10 +47,10 @@ export default function ClienteSearchModal({ open, onClose, onSelect }:
         const q = String(query || '').trim()
         let res
         if (q === '') {
-          res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado').order('id', { ascending: false }).limit(100)
+          res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag').order('id', { ascending: false }).limit(100)
         } else {
           // buscar por nombre o rtn (case-insensitive)
-          res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado').or(`nombre.ilike.%${q}%,rtn.ilike.%${q}%`).order('id', { ascending: false }).limit(100)
+          res = await supabase.from('clientes').select('id,nombre,rtn,telefono,correo_electronico,tipo_cliente,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag').or(`nombre.ilike.%${q}%,rtn.ilike.%${q}%`).order('id', { ascending: false }).limit(100)
         }
         if (res.error) throw res.error
         setClientes(Array.isArray(res.data) ? res.data as Cliente[] : [])

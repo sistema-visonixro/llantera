@@ -71,6 +71,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [taxTouristRate, setTaxTouristRate] = useState<number>(0); // default 0.04 (4%)
   const [exchangeRate, setExchangeRate] = useState<number>(26.27);
   const [clienteExonerado, setClienteExonerado] = useState<boolean>(false);
+  const [ordenCompraExenta, setOrdenCompraExenta] = useState("");
+  const [constanciaRegistroExonerado, setConstanciaRegistroExonerado] = useState("");
+  const [registroSag, setRegistroSag] = useState("");
 
   const categorias = [
     "Todas",
@@ -317,7 +320,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         );
         const { data, error } = await supabase
           .from("clientes")
-          .select("id,nombre,telefono,correo_electronico,exonerado")
+          .select("id,nombre,telefono,correo_electronico,exonerado,orden_compra_exenta,constancia_registro_exonerado,registro_sag")
           .eq("rtn", val)
           .eq("tipo_cliente", "juridico")
           .maybeSingle();
@@ -327,6 +330,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setClienteTelefono((data as any).telefono || "");
           setClienteCorreo((data as any).correo_electronico || "");
           setClienteExonerado(Boolean((data as any).exonerado));
+          setOrdenCompraExenta((data as any).orden_compra_exenta || "");
+          setConstanciaRegistroExonerado((data as any).constancia_registro_exonerado || "");
+          setRegistroSag((data as any).registro_sag || "");
           setTimeout(() => {
             try {
               clienteNombreInputRef.current?.focus();
@@ -338,6 +344,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           setClienteTelefono("");
           setClienteCorreo("");
           setClienteExonerado(false);
+          setOrdenCompraExenta("");
+          setConstanciaRegistroExonerado("");
+          setRegistroSag("");
           return;
         }
       }
@@ -625,6 +634,29 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     }
     return Math.max(0, gross - (isv + imp18 + tur));
   };
+  const subtotalesPorTipoCalc = () => {
+    let exonerado = 0;
+    let exento = 0;
+    let gravado = 0;
+    for (const item of carrito) {
+      const lineGross =
+        Number(item.producto.precio || 0) * Number(item.cantidad || 0);
+      if (item.producto.exento) {
+        exento += lineGross;
+        continue;
+      }
+      const aplica18 = Boolean(item.producto.aplica_impuesto_18);
+      const aplicaTur = Boolean(item.producto.aplica_impuesto_turistico);
+      const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
+      const turRate = aplicaTur ? taxTouristRate || 0 : 0;
+      const combined = Number(mainRate) + Number(turRate);
+      const netAmount =
+        combined > 0 ? lineGross / (1 + combined) : lineGross;
+      if (clienteExonerado) exonerado += netAmount;
+      else gravado += netAmount;
+    }
+    return { exonerado, exento, gravado };
+  };
   const taxableSubtotalCalc = () =>
     carrito.reduce(
       (s, it) =>
@@ -641,6 +673,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteNombre("Consumidor Final");
     setClienteRTN("C/F");
     setClienteExonerado(false);
+    setOrdenCompraExenta("");
+    setConstanciaRegistroExonerado("");
+    setRegistroSag("");
     console.debug(
       "doFacturaClienteFinal: abrir modal pago (invoiceAfterPayment)"
     );
@@ -654,6 +689,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteNombre("");
     setClienteRTN("");
     setClienteExonerado(false);
+    setOrdenCompraExenta("");
+    setConstanciaRegistroExonerado("");
+    setRegistroSag("");
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
@@ -665,6 +703,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteNombre("");
     setClienteRTN("");
     setClienteExonerado(false);
+    setOrdenCompraExenta("");
+    setConstanciaRegistroExonerado("");
+    setRegistroSag("");
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
@@ -680,7 +721,14 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   ) => {
     let generator: any =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
-    const optsForGenerator: any = { cliente, rtn };
+    const optsForGenerator: any = {
+      cliente,
+      rtn,
+      exonerado: clienteExonerado,
+      ordenCompraExenta,
+      constanciaRegistroExonerado,
+      registroSag,
+    };
     if (printingMode === "cotizacion") {
       generator = generateCotizacionHTML;
       // prefer explicit cotizacionNumero, fallback to last saved numero from state
@@ -693,6 +741,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const html = await generator(optsForGenerator, printingMode, {
       carrito,
       subtotal: subtotalCalc(),
+      ...subtotalesPorTipoCalc(),
       isvTotal,
       imp18Total,
       impTouristTotal,
@@ -1044,48 +1093,15 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         null,
       fecha_limite_emision:
         usedCai?.fecha_vencimiento ?? usedCai?.fecha_limite_emision ?? null,
+      orden_compra_exenta: ordenCompraExenta || null,
+      constancia_registro_exonerado: constanciaRegistroExonerado || null,
+      registro_sag: registroSag || null,
     };
 
-    // compute sub_exonerado/sub_exento/sub_gravado from carrito
-    try {
-      let se = 0; // sub_exonerado
-      let sx = 0; // sub_exento
-      let sg = 0; // sub_gravado (net taxable = gross - tax portion)
-      const clienteIsExonerado = Boolean(clienteExonerado);
-      for (const it of carrito) {
-        const price = Number(it.producto.precio || 0);
-        const qty = Number(it.cantidad || 0);
-        const lineGross = price * qty;
-        const prodExento = Boolean((it.producto as any).exento);
-        const aplica18 = Boolean((it.producto as any).aplica_impuesto_18);
-        const aplicaTur = Boolean(
-          (it.producto as any).aplica_impuesto_turistico
-        );
-
-        // determine applicable rates (same as tax extraction used elsewhere)
-        const mainRate = aplica18 ? tax18Rate || 0 : taxRate || 0;
-        const turRate = aplicaTur ? taxTouristRate || 0 : 0;
-        const combined = (Number(mainRate) || 0) + (Number(turRate) || 0);
-        const taxAmount =
-          combined > 0 ? lineGross - lineGross / (1 + combined) : 0;
-
-        if (prodExento) {
-          // exentos: subtotal is full gross price
-          sx += lineGross;
-        } else if (clienteIsExonerado) {
-          // cliente exonerado: store net value (gross - taxes) under sub_exonerado
-          se += Math.max(0, lineGross - taxAmount);
-        } else {
-          // gravado: store net taxable (gross - taxes)
-          sg += Math.max(0, lineGross - taxAmount);
-        }
-      }
-      ventaPayload.sub_exonerado = Number(Number(se || 0).toFixed(6));
-      ventaPayload.sub_exento = Number(Number(sx || 0).toFixed(6));
-      ventaPayload.sub_gravado = Number(Number(sg || 0).toFixed(6));
-    } catch (e) {
-      console.debug("Error computing sub_* for ventaPayload", e);
-    }
+    const subtotalesPorTipo = subtotalesPorTipoCalc();
+    ventaPayload.sub_exonerado = Number(subtotalesPorTipo.exonerado.toFixed(6));
+    ventaPayload.sub_exento = Number(subtotalesPorTipo.exento.toFixed(6));
+    ventaPayload.sub_gravado = Number(subtotalesPorTipo.gravado.toFixed(6));
 
     // Try inserting venta; if server reports missing columns (PGRST204 / Could not find...), retry without CAI-related fields
     let ventaInsRaw: any = null;
@@ -1176,6 +1192,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         delete minimalPayload.sub_exonerado;
         delete minimalPayload.sub_exento;
         delete minimalPayload.sub_gravado;
+        delete minimalPayload.orden_compra_exenta;
+        delete minimalPayload.constancia_registro_exonerado;
+        delete minimalPayload.registro_sag;
         try {
           const res2 = await supabase
             .from("ventas")
@@ -1774,6 +1793,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 telefono: clienteTelefono || null,
                 correo_electronico: clienteCorreo || null,
                 exonerado: clienteExonerado,
+                orden_compra_exenta: ordenCompraExenta || null,
+                constancia_registro_exonerado: constanciaRegistroExonerado || null,
+                registro_sag: registroSag || null,
               })
               .eq("id", (found as any).id);
             if (updErr)
@@ -1788,6 +1810,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                 correo_electronico: clienteCorreo || null,
                 tipo_cliente: "juridico",
                 exonerado: clienteExonerado,
+                orden_compra_exenta: ordenCompraExenta || null,
+                constancia_registro_exonerado: constanciaRegistroExonerado || null,
+                registro_sag: registroSag || null,
               },
             ]);
             if (insErr)
@@ -1809,11 +1834,19 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     const generator =
       printFormat === "cinta" ? generateFacturaHTMLCinta : generateFacturaHTML;
     const html = await generator(
-      { cliente: clienteNombre || "Cliente", rtn: clienteRTN || "" },
+      {
+        cliente: clienteNombre || "Cliente",
+        rtn: clienteRTN || "",
+        exonerado: clienteExonerado,
+        ordenCompraExenta,
+        constanciaRegistroExonerado,
+        registroSag,
+      },
       printingMode,
       {
         carrito,
         subtotal: subtotalCalc(),
+        ...subtotalesPorTipoCalc(),
         isvTotal,
         imp18Total,
         impTouristTotal,
@@ -3247,6 +3280,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           clienteTelefono={clienteTelefono}
           clienteCorreo={clienteCorreo}
           clienteExonerado={clienteExonerado}
+          ordenCompraExenta={ordenCompraExenta}
+          constanciaRegistroExonerado={constanciaRegistroExonerado}
+          registroSag={registroSag}
           clienteSearchOpen={clienteSearchOpen}
           setClienteSearchOpen={(v) => setClienteSearchOpen(v)}
           onRTNChange={(v) => handleRTNChange(v)}
@@ -3254,6 +3290,9 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           onTelefonoChange={(v) => setClienteTelefono(v)}
           onCorreoChange={(v) => setClienteCorreo(v)}
           onExoneradoChange={(v) => setClienteExonerado(v)}
+          onOrdenCompraExentaChange={setOrdenCompraExenta}
+          onConstanciaRegistroExoneradoChange={setConstanciaRegistroExonerado}
+          onRegistroSagChange={setRegistroSag}
           onCreateCliente={() => setCreateClienteModalOpen(true)}
           onCancel={() => setClienteNormalModalOpen(false)}
           onOpenCreateCliente={() => setCreateClienteModalOpen(true)}
@@ -3270,11 +3309,17 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
           clienteTelefono={clienteTelefono}
           clienteCorreo={clienteCorreo}
           clienteExonerado={clienteExonerado}
+          ordenCompraExenta={ordenCompraExenta}
+          constanciaRegistroExonerado={constanciaRegistroExonerado}
+          registroSag={registroSag}
           onChangeRTN={(v) => setClienteRTN(v)}
           onChangeNombre={(v) => setClienteNombre(v)}
           onChangeTelefono={(v) => setClienteTelefono(v)}
           onChangeCorreo={(v) => setClienteCorreo(v)}
           onChangeExonerado={(v) => setClienteExonerado(v)}
+          onChangeOrdenCompraExenta={setOrdenCompraExenta}
+          onChangeConstanciaRegistroExonerado={setConstanciaRegistroExonerado}
+          onChangeRegistroSag={setRegistroSag}
           onCreate={async () => {
             try {
               if (!clienteNombre || !clienteRTN) return;
@@ -3291,9 +3336,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                   .update({
                     nombre: clienteNombre,
                     telefono: clienteTelefono || null,
-                    correo_electronica: clienteCorreo || null,
+                    correo_electronico: clienteCorreo || null,
                     tipo_cliente: "juridico",
                     exonerado: clienteExonerado,
+                    orden_compra_exenta: ordenCompraExenta || null,
+                    constancia_registro_exonerado: constanciaRegistroExonerado || null,
+                    registro_sag: registroSag || null,
                   })
                   .eq("id", (existing as any).id);
                 if (updErr)
@@ -3306,9 +3354,12 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
                       nombre: clienteNombre,
                       rtn: clienteRTN,
                       telefono: clienteTelefono || null,
-                      correo_electronica: clienteCorreo || null,
+                      correo_electronico: clienteCorreo || null,
                       tipo_cliente: "juridico",
                       exonerado: clienteExonerado,
+                      orden_compra_exenta: ordenCompraExenta || null,
+                      constancia_registro_exonerado: constanciaRegistroExonerado || null,
+                      registro_sag: registroSag || null,
                     },
                   ]);
                 if (insErr)

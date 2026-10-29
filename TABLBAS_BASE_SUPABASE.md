@@ -117,7 +117,10 @@ rtn text,
 telefono text,
 tipo_cliente text CHECK (tipo_cliente = ANY (ARRAY['juridico'::text, 'natural'::text])),
 correo_electronico text,
-exonerado boolean DEFAULT false
+exonerado boolean DEFAULT false,
+orden_compra_exenta text,
+constancia_registro_exonerado text,
+registro_sag text
 );
 
 CREATE TABLE public.cotizaciones (
@@ -172,7 +175,10 @@ isv_18 numeric NOT NULL DEFAULT 0,
 isv_4 numeric NOT NULL DEFAULT 0,
 sub_exonerado numeric NOT NULL DEFAULT 0,
 sub_exento numeric NOT NULL DEFAULT 0,
-sub_gravado numeric NOT NULL DEFAULT 0
+sub_gravado numeric NOT NULL DEFAULT 0,
+orden_compra_exenta text,
+constancia_registro_exonerado text,
+registro_sag text
 );
 
 CREATE TABLE public.ventas_detalle (
