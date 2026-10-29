@@ -70,6 +70,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   const [tax18Rate, setTax18Rate] = useState<number>(0); // default 0.18 (18%)
   const [taxTouristRate, setTaxTouristRate] = useState<number>(0); // default 0.04 (4%)
   const [exchangeRate, setExchangeRate] = useState<number>(26.27);
+  const [clienteExonerado, setClienteExonerado] = useState<boolean>(false);
 
   const categorias = [
     "Todas",
@@ -95,7 +96,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   // Compute taxes as included in the item price (price includes taxes).
   // For each item, extract the tax portion: taxAmount = price - price / (1 + combinedRate)
   // Then split the taxAmount between main tax (ISV 15% or 18%) and tourist tax proportionally.
-  let isvTotal = 0;
+  let isvCalculado = 0;
   let imp18Total = 0;
   let impTouristTotal = 0;
   for (const item of carrito) {
@@ -113,12 +114,13 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     if (aplica18) {
       imp18Total += taxAmount * (mainRate / combined);
     } else {
-      isvTotal += taxAmount * (mainRate / combined);
+      isvCalculado += taxAmount * (mainRate / combined);
     }
     if (aplicaTur) {
       impTouristTotal += taxAmount * (turRate / combined);
     }
   }
+  const isvTotal = clienteExonerado ? 0 : isvCalculado;
 
   const printCotizacionDirect = async (
     cliente: string,
@@ -140,11 +142,11 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
       skipCotizacionConfirmRef.current = false;
     }
   };
-  // total is the gross total (prices include taxes); subtotal (net) is gross minus extracted taxes
-  const total = grossTotal;
+  // Prices include taxes; an exempt client does not pay the included ISV 15%.
+  const total = Math.max(0, grossTotal - (clienteExonerado ? isvCalculado : 0));
   const subtotal = Math.max(
     0,
-    grossTotal - (isvTotal + imp18Total + impTouristTotal)
+    grossTotal - (isvCalculado + imp18Total + impTouristTotal)
   );
   // Per-item tax breakdown for UI/debugging
   const perItemTaxes = carrito.map((item) => {
@@ -176,7 +178,8 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
         totalTax: 0,
       };
     const taxAmount = price - price / (1 + combined);
-    const isvPart = aplica18 ? 0 : taxAmount * (mainRate / combined);
+    const isvPart =
+      clienteExonerado || aplica18 ? 0 : taxAmount * (mainRate / combined);
     const imp18Part = aplica18 ? taxAmount * (mainRate / combined) : 0;
     const turPart = aplicaTur ? taxAmount * (turRate / combined) : 0;
     return {
@@ -289,7 +292,6 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
   >("final");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteCorreo, setClienteCorreo] = useState("");
-  const [clienteExonerado, setClienteExonerado] = useState<boolean>(false);
   const [createClienteModalOpen, setCreateClienteModalOpen] = useState(false);
   const [cotizacionModalOpen, setCotizacionModalOpen] = useState(false);
   const skipCotizacionConfirmRef = useRef(false);
@@ -638,6 +640,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo("final");
     setClienteNombre("Consumidor Final");
     setClienteRTN("C/F");
+    setClienteExonerado(false);
     console.debug(
       "doFacturaClienteFinal: abrir modal pago (invoiceAfterPayment)"
     );
@@ -650,6 +653,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo("normal");
     setClienteNombre("");
     setClienteRTN("");
+    setClienteExonerado(false);
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
@@ -660,6 +664,7 @@ export default function PuntoDeVentas({ onLogout }: { onLogout: () => void }) {
     setClienteTipo("juridico");
     setClienteNombre("");
     setClienteRTN("");
+    setClienteExonerado(false);
     setPaymentDone(false);
     setPaymentInfo(null);
     setClienteNormalModalOpen(true);
